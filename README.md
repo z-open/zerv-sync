@@ -1,4 +1,4 @@
-# socketio-sync
+# zerv-sync
 
 
 
@@ -9,11 +9,11 @@ This node module handles the data synchronization on the server side over socket
 
 ### pre-requisite
 
-socketio-auth middleware
-First, set up your node server to use express with socketio-auth.
+zerv-core middleware
+First, set up your node server to use express with the zerv-core module.
 
-Angular-sync client
-It requires the client to use the angular-sync bower package to establish the syncing process.
+zerv-ng-sync client
+It requires the client to use the zerv-ng-sync bower package to establish the syncing process.
 
 
 ### Principle
@@ -47,8 +47,7 @@ Create a publication on the backend. the publication is set to listen to data ch
  Subscribe to this publication on the client (In this example, it is a subscription to an array)
  ex:
 
- var sync = require("socketio-sync")
- var sds = sync.subscribe(
+ var sds = $sync.subscribe(
             'magazines',
             scope).setParameters({ type: 'fiction'});
 var mySyncList = sds.getData();
@@ -56,11 +55,11 @@ var mySyncList = sds.getData();
  When your api update, create or remove data, notify the data changes on the backend. You might provide params that must be in the subscription to react. 
  ex:
 
- var sync = require("socketio-sync")
+ var zerv = require("zerv-core");
  function createMagazine(magazine) {
     magazine.revision = 0;
     return saveInDb(magazine).then(function (magazine) {
-        sync.notifyChanges('MAGAZINE_DATA', magazine);
+        zerv.notifyCreation('MAGAZINE_DATA', magazine);
         return magazine
     });
  }
@@ -68,7 +67,7 @@ var mySyncList = sds.getData();
  function updateMagazine(magazine) {
     magazine.revision++;
     return saveInDb(magazine).then(function (magazine) {
-        sync.notifyChanges('MAGAZINE_DATA', magazine);
+        zerv.notifyChanges('MAGAZINE_DATA', magazine);
         return magazine
     });
  }
@@ -76,7 +75,7 @@ var mySyncList = sds.getData();
  function removeMagazine(magazine) {
     magazine.revision++;
     return removeFromDb(magazine).then(function (rep) {
-        sync.notifyRemoval('MAGAZINE_DATA', magazine);
+        zerv.notifyRemoval('MAGAZINE_DATA', magazine);
         return rep;
     });
  }
