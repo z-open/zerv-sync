@@ -39,22 +39,28 @@ This might be taken in consideration when implementing a load balancing strategy
 
 Create a publication on the backend. the publication is set to listen to data changes
  ex:
+ 
+ '''
   sync.publish('magazines.sync',function(tenantId,userId,params){
     return magazineService.fetchForUser(userId,params.type)
- },[MAGAZINE_DATA]);
+ },MAGAZINE_DATA);
  }
- 
+ '''
+
  Subscribe to this publication on the client (In this example, it is a subscription to an array)
  ex:
 
+'''
  var sds = $sync.subscribe(
             'magazines',
             scope).setParameters({ type: 'fiction'});
 var mySyncList = sds.getData();
- 
+ '''
+
  When your api update, create or remove data, notify the data changes on the backend. You might provide params that must be in the subscription to react. 
  ex:
 
+'''
  var zerv = require("zerv-core");
  function createMagazine(magazine) {
     magazine.revision = 0;
@@ -79,6 +85,32 @@ var mySyncList = sds.getData();
         return rep;
     });
  }
+'''
+
+ ### Example
+'''
+A publication might have options
+ ex:
+  sync.publish('magazines.sync',function(tenantId,userId,params){
+    return magazineService.fetchForUser(userId,params.type)
+ },MAGAZINE_DATA,
+ {
+     always:true
+ });
+ }
+'''
+when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
+
+### Publication options
+
+always: Push all records to the client for each notification
+
+once: Push all records to the client once then do not push anything else even when notified
+
+init: Provide a function for third parameters.  The params from the subscriptions might required additional parameters not known to the subscriber but necessary to the publication
+      function init(tenantId, user, additionalParams) {
+          additionalParams.tenantId = tenantId;
+      }
 
 ### Other
 
