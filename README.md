@@ -24,7 +24,7 @@ When the subscription is established, the backend subscription will fetch data f
 When data is updated in the backend, a notification must be implemented to emit the data/object change.
 Publications react to those notifications. They will directly push the changes to their subscribers if determined to be related.
 
-The idea is to decrease the number of accesses to the db:
+The objective is to decrease the number of accesses to the db:
 
 - In most cases, the publication only needs to access the persistence layer at initialization.
 - If the connection to the subscribers is lost for a short period of time, the publication caches next changes and give enough time for the client to reconnect.
@@ -103,11 +103,12 @@ when always is true, each time there is a notification on MAGAZINE_DATA, the fet
 
 ### Publication options
 
-always: Push all records to the client for each notification
+always: Push all records to the client for each notification. By default, only notified object might be pushed to the client.
 
 once: Push all records to the client once then do not push anything else even when notified
 
 init: Provide a function for third parameters.  The params from the subscriptions might required additional parameters not known to the subscriber but necessary to the publication
+
       function init(tenantId, user, additionalParams) {
           additionalParams.tenantId = tenantId;
       }
