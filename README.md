@@ -39,66 +39,66 @@ This might be taken in consideration when implementing a load balancing strategy
 
 Create a publication on the backend. the publication is set to listen to data changes
  ex:
+  
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+       return magazineService.fetchForUser(userId,params.type)
+       },MAGAZINE_DATA);
+     }
  
- '''
-  sync.publish('magazines.sync',function(tenantId,userId,params){
-    return magazineService.fetchForUser(userId,params.type)
- },MAGAZINE_DATA);
- }
- '''
+
 
  Subscribe to this publication on the client (In this example, it is a subscription to an array)
  ex:
 
-'''
- var sds = $sync.subscribe(
+    var sds = $sync.subscribe(
             'magazines',
             scope).setParameters({ type: 'fiction'});
-var mySyncList = sds.getData();
- '''
+    var mySyncList = sds.getData();
+
 
  When your api update, create or remove data, notify the data changes on the backend. You might provide params that must be in the subscription to react. 
  ex:
 
-'''
- var zerv = require("zerv-core");
- function createMagazine(magazine) {
-    magazine.revision = 0;
-    return saveInDb(magazine).then(function (magazine) {
-        zerv.notifyCreation('MAGAZINE_DATA', magazine);
-        return magazine
-    });
- }
 
- function updateMagazine(magazine) {
-    magazine.revision++;
-    return saveInDb(magazine).then(function (magazine) {
-        zerv.notifyChanges('MAGAZINE_DATA', magazine);
+     var zerv = require("zerv-core");
+     function createMagazine(magazine) {
+        magazine.revision = 0;
+        return saveInDb(magazine).then(function (magazine) {
+            zerv.notifyCreation('MAGAZINE_DATA', magazine);
+            return magazine
+        });
+     }
+
+     function updateMagazine(magazine) {
+        magazine.revision++;
+        return saveInDb(magazine).then(function (magazine) {
+            zerv.notifyChanges('MAGAZINE_DATA', magazine);
         return magazine
-    });
- }
+        });
+     }
  
- function removeMagazine(magazine) {
-    magazine.revision++;
-    return removeFromDb(magazine).then(function (rep) {
-        zerv.notifyRemoval('MAGAZINE_DATA', magazine);
-        return rep;
-    });
- }
-'''
+     function removeMagazine(magazine) {
+        magazine.revision++;
+        return removeFromDb(magazine).then(function (rep) {
+            zerv.notifyRemoval('MAGAZINE_DATA', magazine);
+            return rep;
+        });
+     }
+
 
  ### Example
-'''
+
 A publication might have options
  ex:
-  sync.publish('magazines.sync',function(tenantId,userId,params){
-    return magazineService.fetchForUser(userId,params.type)
- },MAGAZINE_DATA,
- {
-     always:true
- });
- }
-'''
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return magazineService.fetchForUser(userId,params.type)
+     },MAGAZINE_DATA,
+     {
+         always:true
+     });
+     }
+
 when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
 
 ### Publication options
