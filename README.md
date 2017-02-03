@@ -1,4 +1,4 @@
-# socketio-sync
+# zerv-sync
 
 
 
@@ -9,11 +9,11 @@ This node module handles the data synchronization on the server side over socket
 
 ### pre-requisite
 
-socketio-auth middleware
-First, set up your node server to use express with socketio-auth.
+zerv-core middleware
+First, set up your node server to use express with the zerv-core module.
 
-Angular-sync client
-It requires the client to use the angular-sync bower package to establish the syncing process.
+zerv-ng-sync client
+It requires the client to use the zerv-ng-sync bower package to establish the syncing process.
 
 
 ### Principle
@@ -24,7 +24,7 @@ When the subscription is established, the backend subscription will fetch data f
 When data is updated in the backend, a notification must be implemented to emit the data/object change.
 Publications react to those notifications. They will directly push the changes to their subscribers if determined to be related.
 
-The idea is to decrease the number of accesses to the db:
+The objective is to decrease the number of accesses to the db:
 
 - In most cases, the publication only needs to access the persistence layer at initialization.
 - If the connection to the subscribers is lost for a short period of time, the publication caches next changes and give enough time for the client to reconnect.
@@ -39,47 +39,79 @@ This might be taken in consideration when implementing a load balancing strategy
 
 Create a publication on the backend. the publication is set to listen to data changes
  ex:
-  sync.publish('magazines.sync',function(tenantId,userId,params){
-    return magazineService.fetchForUser(userId,params.type)
- },[MAGAZINE_DATA]);
- }
+  
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+       return magazineService.fetchForUser(userId,params.type)
+       },MAGAZINE_DATA);
+     }
  
+
+
  Subscribe to this publication on the client (In this example, it is a subscription to an array)
  ex:
 
- var sync = require("socketio-sync")
- var sds = sync.subscribe(
+    var sds = $sync.subscribe(
             'magazines',
             scope).setParameters({ type: 'fiction'});
-var mySyncList = sds.getData();
- 
+    var mySyncList = sds.getData();
+
+
  When your api update, create or remove data, notify the data changes on the backend. You might provide params that must be in the subscription to react. 
  ex:
 
- var sync = require("socketio-sync")
- function createMagazine(magazine) {
-    magazine.revision = 0;
-    return saveInDb(magazine).then(function (magazine) {
-        sync.notifyChanges('MAGAZINE_DATA', magazine);
-        return magazine
-    });
- }
 
- function updateMagazine(magazine) {
-    magazine.revision++;
-    return saveInDb(magazine).then(function (magazine) {
-        sync.notifyChanges('MAGAZINE_DATA', magazine);
+     var zerv = require("zerv-core");
+     function createMagazine(magazine) {
+        magazine.revision = 0;
+        return saveInDb(magazine).then(function (magazine) {
+            zerv.notifyCreation('MAGAZINE_DATA', magazine);
+            return magazine
+        });
+     }
+
+     function updateMagazine(magazine) {
+        magazine.revision++;
+        return saveInDb(magazine).then(function (magazine) {
+            zerv.notifyChanges('MAGAZINE_DATA', magazine);
         return magazine
-    });
- }
+        });
+     }
  
- function removeMagazine(magazine) {
-    magazine.revision++;
-    return removeFromDb(magazine).then(function (rep) {
-        sync.notifyRemoval('MAGAZINE_DATA', magazine);
-        return rep;
-    });
- }
+     function removeMagazine(magazine) {
+        magazine.revision++;
+        return removeFromDb(magazine).then(function (rep) {
+            zerv.notifyRemoval('MAGAZINE_DATA', magazine);
+            return rep;
+        });
+     }
+
+
+ ### Example
+
+A publication might have options
+ ex:
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return magazineService.fetchForUser(userId,params.type)
+     },MAGAZINE_DATA,
+     {
+         always:true
+     });
+     }
+
+when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
+
+### Publication options
+
+always: Push all records to the client for each notification. By default, only notified object might be pushed to the client.
+
+once: Push all records to the client once then do not push anything else even when notified
+
+init: Provide a function for third parameters.  The params from the subscriptions might required additional parameters not known to the subscriber but necessary to the publication
+
+      function init(tenantId, user, additionalParams) {
+          additionalParams.tenantId = tenantId;
+      }
 
 ### Other
 
