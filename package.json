@@ -1,33 +1,33 @@
 {
-  "name": "zerv-sync",
-  "version": "1.0.1",
-  "description": "Zerv module providing data synchronization support",
-  "main": "lib/server-sync.js",
-  "keywords": [
-    "socket",
-    "socket.io",
-    "jwt"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/z-open/zerv-sync.git"
-  },
-  "scripts": {
-    "test": "./node_modules/jasmine/bin/jasmine.js"
-  },
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.14.0",
-    "jsonwebtoken": "^5.0.0",
-    "lodash": "^4.15.0",
-    "promise": "^7.1.1",
-    "request": "^2.74.0",
-    "zerv-core": "git://github.com/z-open/zerv-core#1.0.0",
-    "uuid": "^2.0.1",
-    "xtend": "~2.1.2",
-    "zlog": "git://github.com/z-open/zlog#1.0.0"
-  },
-  "devDependencies": {
-    "jasmine": "^2.4.1"
-  }
+    "name": "zerv-sync",
+    "version": "1.0.2",
+    "description": "Zerv module providing data synchronization support",
+    "main": "lib/server-sync.js",
+    "keywords": [
+        "socket",
+        "socket.io",
+        "jwt"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/z-open/zerv-sync.git"
+    },
+    "scripts": {
+        "test": "./node_modules/jasmine/bin/jasmine.js"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.14.0",
+        "jsonwebtoken": "^5.0.0",
+        "lodash": "^4.15.0",
+        "promise": "^7.1.1",
+        "request": "^2.74.0",
+        "zerv-core": "git://github.com/z-open/zerv-core#1.0.0",
+        "uuid": "^2.0.1",
+        "xtend": "~2.1.2",
+        "zlog": "git://github.com/z-open/zlog#1.0.0"
+    },
+    "devDependencies": {
+        "jasmine": "^2.4.1"
+    }
 }
