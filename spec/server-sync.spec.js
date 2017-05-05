@@ -5,6 +5,7 @@ var sync = require("../lib/server-sync");
 var Promise = require('promise');
 var socket;
 var handler;
+var tenantId;
 var userId;
 var subscription;
 var deferredEmit, deferredFetch;
@@ -30,13 +31,14 @@ describe("Sync", function () {
         deferredEmit = defer();
         deferredFetch = defer();
 
+        tenantId = 'TID';
         userId = 'UID1234';
 
         socket = new MockSocket();
 
         handler = {
             user: {
-                tenantId: 'TID',
+                tenantId,
                 id: userId,
                 display: 'John'
             },
@@ -45,7 +47,7 @@ describe("Sync", function () {
 
         handler2 = {
             user: {
-                tenantId: 'TID',
+                tenantId,
                 id: 'U2',
                 display: 'Mike'
             },
@@ -194,7 +196,7 @@ describe("Sync", function () {
         });
         it("should receive an update", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyChanges('MAGAZINE_DATA', magazine1b);
+                sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.diff).toBe(true);
                     expect(sub2.records.length).toBe(1);
@@ -206,7 +208,7 @@ describe("Sync", function () {
 
         it("should receive an addition", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyChanges('MAGAZINE_DATA', magazine3);
+                sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.diff).toBe(true);
                     expect(sub2.records.length).toBe(1);
@@ -218,7 +220,7 @@ describe("Sync", function () {
 
         it("should receive a removal", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyRemoval('MAGAZINE_DATA', magazine2Deleted);
+                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.diff).toBe(true);
                     expect(sub2.records.length).toBe(1);
@@ -231,7 +233,7 @@ describe("Sync", function () {
             waitForNotification().then(function (sub1) {
                 // the client decides if its cache need to remove magazine revision number
                 // server does not keep track of what is on the client
-                sync.notifyRemoval('MAGAZINE_DATA', magazine2);
+                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.records.length).toBe(1);
                     done();
@@ -248,7 +250,7 @@ describe("Sync", function () {
 
         it("should receive an update", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyChanges('MAGAZINE_DATA', magazine1b);
+                sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.records.length).toBe(1);
                     done();
@@ -258,7 +260,7 @@ describe("Sync", function () {
 
         it("should receive an addition", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyChanges('MAGAZINE_DATA', magazine4);
+                sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine4);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.records.length).toBe(1);
                     done();
@@ -269,7 +271,7 @@ describe("Sync", function () {
 
         it("should receive a removal", function (done) {
             waitForNotification().then(function (sub1) {
-                sync.notifyRemoval('MAGAZINE_DATA', magazine2Deleted);
+                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
                 waitForNotification().then(function (sub2) {
                     expect(sub2.records.length).toBe(1);
                     done();
@@ -284,7 +286,7 @@ describe("Sync", function () {
                 })
                 .then(waitForNotification)
                 .then(function (sub1) {
-                    sync.notifyChanges('MAGAZINE_DATA', magazine3);
+                    sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
                     expect(socket.emit.calls.count()).toBe(1);
                     done();
                 });
@@ -299,7 +301,7 @@ describe("Sync", function () {
                 })
                 .then(waitForNotification)
                 .then(function (sub1) {
-                    sync.notifyChanges('MAGAZINE_DATA', magazine3b);
+                    sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3b);
                     expect(socket.emit.calls.count()).toBe(1);
                     done();
                 });
@@ -314,7 +316,7 @@ describe("Sync", function () {
                 .then(waitForNotification)
                 .then(function (sub1) {
                     debugger
-                    sync.notifyChanges('MAGAZINE_DATA', magazine3Deleted);
+                    sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
                     expect(socket.emit.calls.count()).toBe(1);
                     done();
                 });
