@@ -121,7 +121,6 @@ describe("Sync", function () {
     it("should unsubscribe", function () {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         expect(subscription).toBeDefined();
-        debugger
         sync.unsubscribe(handler.user, subscription.id);
         expect(sync.countActiveSubscriptions()).toBe(0);
     });
@@ -180,7 +179,6 @@ describe("Sync", function () {
         });
 
         it("should emit only once the data at subscription initialization", function (done) {
-            debugger;
             deferredFetch.promise
                 .then(function () {
                     expect(socket.emit.calls.count()).toBe(1);
@@ -315,7 +313,6 @@ describe("Sync", function () {
                 })
                 .then(waitForNotification)
                 .then(function (sub1) {
-                    debugger
                     sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
                     expect(socket.emit.calls.count()).toBe(1);
                     done();
