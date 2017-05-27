@@ -150,7 +150,7 @@ describe("Sync", function () {
 
         it("should reconnect to a new subscription instance when the network does NOT re-establish quickly", function () {
             jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 1000 + 10);
-            var newSubscription = sync.subscribe(handler.user, handler.socket, subscription, 'magazines', null);
+            var newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
             expect(newSubscription).not.toBe(subscription);
         });
 
