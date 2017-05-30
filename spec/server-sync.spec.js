@@ -1,7 +1,7 @@
 const zlog = require('zlog');
 zlog.setRootLogger('NONE');
 
-var sync = require("../lib/server-sync");
+var sync = require("../lib/zerv-sync");
 var Promise = require('promise');
 var socket;
 var handler;
