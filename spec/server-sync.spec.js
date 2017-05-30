@@ -72,7 +72,7 @@ describe("Sync", function () {
 
     afterEach(function () {
         // release all subsriptions
-        sync.clear();
+        sync.dropActiveSubscriptions();
         jasmine.clock().uninstall();
 
     });
@@ -100,10 +100,10 @@ describe("Sync", function () {
         expect(handler.socket.subscriptions.length).toBe(1);
     });
 
-    it("should clear all active subscriptions from memory", function () {
+    it("should dropActiveSubscriptions all active subscriptions from memory", function () {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         var subscription2 = sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
-        sync.clear();
+        sync.dropActiveSubscriptions();
         expect(sync.countActiveSubscriptions()).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
