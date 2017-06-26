@@ -142,6 +142,8 @@ This will reduce network activity and increase performance.
 
 Composite publication
 
+Partially implemented on client side.
+
 In order to garantee that a client has related objects/data available before its use, publication shall be able to let the client know when the data is ready for consumption.
 
 Currently if the client subscribes to 2 publications, ex book list publication and publication of authors related to the book list.
