@@ -1,7 +1,7 @@
 const zlog = require('zlog');
 zlog.setRootLogger('NONE');
 
-var sync = require("../lib/server-sync");
+var sync = require("../lib/zerv-sync");
 var Promise = require('promise');
 var socket;
 var handler;
@@ -72,7 +72,7 @@ describe("Sync", function () {
 
     afterEach(function () {
         // release all subsriptions
-        sync.clear();
+        sync.dropActiveSubscriptions();
         jasmine.clock().uninstall();
 
     });
@@ -100,10 +100,10 @@ describe("Sync", function () {
         expect(handler.socket.subscriptions.length).toBe(1);
     });
 
-    it("should clear all active subscriptions from memory", function () {
+    it("should dropActiveSubscriptions all active subscriptions from memory", function () {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         var subscription2 = sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
-        sync.clear();
+        sync.dropActiveSubscriptions();
         expect(sync.countActiveSubscriptions()).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
@@ -121,7 +121,6 @@ describe("Sync", function () {
     it("should unsubscribe", function () {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         expect(subscription).toBeDefined();
-        debugger
         sync.unsubscribe(handler.user, subscription.id);
         expect(sync.countActiveSubscriptions()).toBe(0);
     });
@@ -151,7 +150,7 @@ describe("Sync", function () {
 
         it("should reconnect to a new subscription instance when the network does NOT re-establish quickly", function () {
             jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 1000 + 10);
-            var newSubscription = sync.subscribe(handler.user, handler.socket, subscription, 'magazines', null);
+            var newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
             expect(newSubscription).not.toBe(subscription);
         });
 
@@ -180,7 +179,6 @@ describe("Sync", function () {
         });
 
         it("should emit only once the data at subscription initialization", function (done) {
-            debugger;
             deferredFetch.promise
                 .then(function () {
                     expect(socket.emit.calls.count()).toBe(1);
@@ -315,7 +313,6 @@ describe("Sync", function () {
                 })
                 .then(waitForNotification)
                 .then(function (sub1) {
-                    debugger
                     sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
                     expect(socket.emit.calls.count()).toBe(1);
                     done();

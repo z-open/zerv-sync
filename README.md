@@ -113,6 +113,18 @@ init: Provide a function for third parameters.  The params from the subscription
           additionalParams.tenantId = tenantId;
       }
 
+### Zerv farm
+If you run multiple zerv based application server instances (ex load balancing), all zerv instances must inter-communicate via a redis server.
+
+Install a redis server and provide the following node environment variables to each instance:
+
+    REDIS_ENABLED=true
+    REDIS_HOST=<redis server ip or dns>
+    REDIS_PORT=<redis server port>
+
+The redis server must be reacheable from your instances.
+
+
 ### Other
 
 sync.setMaxDisconnectionTimeBeforeDroppingSubscription
@@ -141,6 +153,8 @@ This will reduce network activity and increase performance.
 
 
 Composite publication
+
+Partially implemented on client side.
 
 In order to garantee that a client has related objects/data available before its use, publication shall be able to let the client know when the data is ready for consumption.
 
