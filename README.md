@@ -101,6 +101,44 @@ A publication might have options
 
 when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
 
+### Notification options
+
+sync.publish(publication_name,fetchFn,dataNotification, options)
+
+So when an object is notified (notifyCreation, notifyDelete, notifyUpdate), the publication listening to this event will check if a subscription needs to receive the notified object.
+
+DataNotification can be a string.
+
+ex:  
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return magazineService.fetchForUser(userId,params.type)
+     },'MAGAZINE_DATA'}
+
+
+DataNotification can be a mapf of notification events and for each event, a configuration can be provided to format or filter the notification.
+
+ex:  
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return service.fetchMagazineAndArticleForUser(userId,params.type)
+     },{
+         'SCIENCE_ARTICLE_DATE': {
+             format: function(scienceArticle) {
+                 return formatScienceArticleToMagazine(scienceArticle)
+             },
+             filter: function(scienceArticle,subscriptionParams) {
+                 return subscriptionParams.type === scienceArticle.field
+             }
+
+         }
+    }
+
+In the example above, the scienceArticle object will only be sent to the notification if it matches some subscription params. If it does, it will be formated to suit the type of object that are supposed to be received by the subscription.
+
+Notice the fetch function (service.fetchMagazineAndArticleForUser) that pulls all the expected data at initialization.
+
+
 ### Publication options
 
 always: Push all records to the client for each notification. By default, only notified object might be pushed to the client.
