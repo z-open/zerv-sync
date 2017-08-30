@@ -26,8 +26,8 @@ Publications react to those notifications. They will directly push the changes t
 
 The objective is to decrease the number of accesses to the db:
 
-- In most cases, the publication only needs to access the persistence layer at initialization.
-- If the connection to the subscribers is lost for a short period of time, the publication caches next changes and give enough time for the client to reconnect.
+- In most cases, the publication only needs to access the persistence layer at initialization anb just needs to be notified of changes as they occur.
+- If the connection to the subscribers is lost for a short period of time, the publication caches potential changes. It gives enough time for the client to reconnect preventing db access.
 - If connection is lost for a long time, the cache will be released. At its reconnection, client will get a new subscription that will fetch data from the db.
 
 NOTE: 
@@ -35,7 +35,7 @@ The client MUST reconnect on the same node server to get what is the queue for a
 This might be taken in consideration when implementing a load balancing strategy.
 
 
-### Example
+### Basic implementation
 
 Create a publication on the backend. the publication is set to listen to data changes
  ex:
@@ -45,9 +45,17 @@ Create a publication on the backend. the publication is set to listen to data ch
        },MAGAZINE_DATA);
      }
  
+Note:
 
+sync functionalities are also accessible from zerv. So sync and zerv are interchangeable.
 
- Subscribe to this publication on the client (In this example, it is a subscription to an array)
+ex:
+
+     zerv.publish(....)
+
+In the front end code, subscribe to this publication.
+Currently only angular 1.5 and above have a zerv client library (use zerv-ng-sync).
+In this example, it is a subscription to an array.
  ex:
 
     var sds = $sync.subscribe(
@@ -56,9 +64,10 @@ Create a publication on the backend. the publication is set to listen to data ch
     var mySyncList = sds.getData();
 
 
- When your api update, create or remove data, notify the data changes on the backend. You might provide params that must be in the subscription to react. 
- ex:
+ On the backend, When your api update, create or remove data, notify the data changes. 
+ The notified object should match the params provided in the subscription in order to the data to be pushed to the client.
 
+ ex: 
 
      var zerv = require("zerv-core");
      function createMagazine(magazine) {
@@ -85,44 +94,36 @@ Create a publication on the backend. the publication is set to listen to data ch
         });
      }
 
+### Publication Notification options
 
- ### Example
+    sync.publish(publication_name,fetchFn,dataNotification, options)
 
-A publication might have options
- ex:
-
-     sync.publish('magazines.sync',function(tenantId,userId,params){
-        return magazineService.fetchForUser(userId,params.type)
-     },MAGAZINE_DATA,
-     {
-         always:true
-     });
-     }
-
-when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
-
-### Notification options
-
-sync.publish(publication_name,fetchFn,dataNotification, options)
+DataNotification is required.
 
 So when an object is notified (notifyCreation, notifyDelete, notifyUpdate), the publication listening to this event will check if a subscription needs to receive the notified object.
 
-DataNotification can be a string.
 
+
+#### DataNotification {String}
 ex:  
 
      sync.publish('magazines.sync',function(tenantId,userId,params){
         return magazineService.fetchForUser(userId,params.type)
      },'MAGAZINE_DATA'}
 
+Each notification to MAGAZINE_DATA, will be sent to the subscription if it matches ALL subscription params.
 
-DataNotification can be a mapf of notification events and for each event, a configuration can be provided to format or filter the notification.
+#### DataNotification {Object}
+An object map of notification events can be defined.
+For each event, a configuration can also be provided to format or filter the notification. 
+Format and filter are optionals.
 
 ex:  
 
      sync.publish('magazines.sync',function(tenantId,userId,params){
         return service.fetchMagazineAndArticleForUser(userId,params.type)
      },{
+         'MAGAZINE_DATA: {},
          'SCIENCE_ARTICLE_DATE': {
              format: function(scienceArticle) {
                  return formatScienceArticleToMagazine(scienceArticle)
@@ -134,24 +135,50 @@ ex:
          }
     }
 
-In the example above, the scienceArticle object will only be sent to the notification if it matches some subscription params. If it does, it will be formated to suit the type of object that are supposed to be received by the subscription.
+In the example above, 
+
+Each notification to MAGAZINE_DATA, will be sent to the subscription if it matches ALL subscription params.
+
+The scienceArticle object will only be sent to all subscriptions which makes the filter filter return true. 
+If it does, it will be formated to suit the type of object that are supposed to be received by the subscription.
 
 Notice the fetch function (service.fetchMagazineAndArticleForUser) that pulls all the expected data at initialization.
 
-
 ### Publication options
 
-always: Push all records to the client for each notification. By default, only notified object might be pushed to the client.
+sync.publish(publication_name,fetchFn,dataNotification, options)
 
-once: Push all records to the client once then do not push anything else even when notified
+Options is an optional object that might have the following key/value
 
-init: Provide a function for third parameters.  The params from the subscriptions might required additional parameters not known to the subscriber but necessary to the publication
+#### always {boolean}
+Push all records to the client for each notification. By default, only notified object might be pushed to the client.
+This should only be use for publications that requires complex db joins and barely get notified of changes
+
+ex:
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return magazineService.fetchForUser(userId,params.type)
+     },MAGAZINE_DATA,
+     {
+         always:true
+     });
+     }
+
+when always is true, each time there is a notification on MAGAZINE_DATA, the fetch will run and all records will get pushed to the client instead of only the notified one.
+
+#### once {boolean}
+Push all records to the client once then do not push anything else even when notified
+
+#### init: {function}
+Provide a function for third parameters.  The params from the subscriptions might required additional parameters not known to the subscriber but necessary to the publication
 
       function init(tenantId, user, additionalParams) {
           additionalParams.tenantId = tenantId;
       }
 
+
 ### Zerv farm
+
 If you run multiple zerv based application server instances (ex load balancing), all zerv instances must inter-communicate via a redis server.
 
 Install a redis server and provide the following node environment variables to each instance:
@@ -163,13 +190,13 @@ Install a redis server and provide the following node environment variables to e
 The redis server must be reacheable from your instances.
 
 
-### Other
+### Zerv sync configuration
 
-sync.setMaxDisconnectionTimeBeforeDroppingSubscription
+#### sync.setMaxDisconnectionTimeBeforeDroppingSubscription
 
 By default, if the client does not restablish the connection in less than 20s, the server will drop the subscription and create a new one (fetching data from db) whehn the client reconnects.
 
-sync.setDebug
+#### sync.setDebug
 
 by default, the backend does not show the log
 
@@ -177,30 +204,18 @@ by default, the backend does not show the log
 
 to run the test: npm test
 
+Note: 
+Increase constant CURRENT_SYNC_VERSION to prevent incompatible bower client libraries to operate.
 
-Note: you might increase constant CURRENT_SYNC_VERSION to prevent incompatible bower client libraries to operate.
 
+### To Implement
 
-###To Implement
-
-object property change notification.
-
+#### object property change notification.
 Publication shall have an option to be notified not only on object changes but even more precisely to the property level.
 Then a publication shall only push an object to its subscribers when some specific object properties have changed.
 This will reduce network activity and increase performance.
 
-
-Composite publication
-
-Partially implemented on client side.
-
-In order to garantee that a client has related objects/data available before its use, publication shall be able to let the client know when the data is ready for consumption.
-
-Currently if the client subscribes to 2 publications, ex book list publication and publication of authors related to the book list.
-if a new book is pushed to the client, the client might try to look up the related author before it is  actually been pushed to the client. This could lead to wrong display or business logic issues.
-
-One publication shall be able to send multiple named recordsets at once. 
-There shall be a parent to children relationship between recordsets defined in the publication. Child can also have their own children datasets. 
-If a parent is updated/added/removed, the child data should reflect the changes. Grand children might be impacted too. If a notification related to child data is emitted, the publication might push the changes if determined to be related (tracked relationshipsÏ).
+#### Always at the notification listener level
+always parameter could also be implemented to be specific to some notifications (Publication Datanotification map)
 
 
