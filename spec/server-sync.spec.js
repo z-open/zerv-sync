@@ -1,5 +1,8 @@
 const zlog = require('zlog');
-zlog.setRootLogger('NONE');
+zlog.setRootLogger('none');
+
+const zervCore = require('zerv-core');
+zervCore.transport.disabled = true;// no serialization or compression. 
 
 var sync = require("../lib/zerv-sync");
 var Promise = require('promise');

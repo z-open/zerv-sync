@@ -1,6 +1,6 @@
 {
   "name": "zerv-sync",
-  "version": "1.0.8",
+  "version": "1.1.1",
   "description": "Zerv module providing data synchronization support",
   "main": "lib/zerv-sync.js",
   "keywords": [
@@ -28,7 +28,9 @@
     "zlog": "git://github.com/z-open/zlog#1.0.0"
   },
   "devDependencies": {
-    "zerv-core": "git://github.com/z-open/zerv-core#1.0.3",
+    "eslint": "^4.3.0",
+    "eslint-config-google": "^0.9.1",
+    "zerv-core": "git://github.com/z-open/zerv-core#1.1.0",
     "jasmine": "^2.4.1"
   }
 }
