@@ -74,7 +74,7 @@ describe('Sync', function() {
 
     afterEach(function() {
         // release all subsriptions
-        sync.dropActiveSubscriptions();
+        sync.unpublish('magazines');
         jasmine.clock().uninstall();
     });
 
@@ -223,14 +223,29 @@ describe('Sync', function() {
             });
         });
 
-        it('should NOT receive a removal if the revision was not increased', function(done) {
+        it('should receive a removal EVEN THOUGH the revision was not increased', function(done) {
             waitForNotification().then(function(sub1) {
                 // server does keep track of what is on the client
                 sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
                 waitForNotification().then(function(sub2) {
-                    fail('Should have not notified any data to subscription');
+                    expect(sub2.diff).toBe(true);
+                    expect(sub2.records.length).toBe(1);
+                    expect(sub2.records[0].revision).toBe(7.01);
+                    // if there is a consecutive update (or even concurrent), the deleted will not interfer
+                    // 
+                    // this cover the following issue on concurrent removal and update
+                    // server 1 notifies a removal of record rev 1, which is automatically increased to 1.01
+                    // server 2 notifies an update of the same record revision at the same time which is increased to 2
+                    // Expectation:
+                    // clients are guaranteed to receive notification sends by server 2 at least, 
+                    // Some might also receive the removal but it would only remove, then sync to readd due to the update
+                    sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
+                    waitForNotification().then(function(sub2) {
+                        expect(sub2.diff).toBe(true);
+                        expect(sub2.records.length).toBe(1);
+                        done();
+                    });
                 });
-                done();
             });
         });
     });
