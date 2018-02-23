@@ -232,12 +232,12 @@ describe('Sync', function() {
                     expect(sub2.records.length).toBe(1);
                     expect(sub2.records[0].revision).toBe(7.01);
                     // if there is a consecutive update (or even concurrent), the deleted will not interfer
-                    // 
+                    //
                     // this cover the following issue on concurrent removal and update
                     // server 1 notifies a removal of record rev 1, which is automatically increased to 1.01
                     // server 2 notifies an update of the same record revision at the same time which is increased to 2
                     // Expectation:
-                    // clients are guaranteed to receive notification sends by server 2 at least, 
+                    // clients are guaranteed to receive notification sends by server 2 at least,
                     // Some might also receive the removal but it would only remove, then sync to readd due to the update
                     sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
                     waitForNotification().then(function(sub2) {
