@@ -336,7 +336,17 @@ describe('Sync', function() {
         });
     });
 
-
+    describe('checkIfMatch', function () {
+        it("should exclude records with unmatched params (subs.setParams)", function () {
+            subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { type: 'fiction' });
+            expect(subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(false);
+        });
+        
+        it("should always match records with params cacheLevel", function () {
+            subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { cacheLevel: 0 });
+            expect(subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(true);
+        });
+    });
     // it("returns status code 200", function (done) {
     //     done();
     // });
