@@ -61,37 +61,49 @@ class Browser {
 }
 
 class Server {
-    process(data, rejectChangeBasedOnOldData) {
+    updateHeaderApi(data, rejectChangeBasedOnOldData) {
+        return this.processUpdate(
+            data,
+            (objToUpdate, data) => {
+                objToUpdate.name = data.name;
+                objToUpdate.address = data.address || null;
+            },
+            (incrementalChange, previousObj, newObj) => {
+                if (!incrementalChange.name && incrementalChange.address) {
+                    // accept change
+                }
+                // this change was not based on the most recent revision
+                if (rejectChangeBasedOnOldData) {
+                    throw new Error('CONFLICT', 'This change was based on revision ' + data.revision + ' but the data was already modified and current revision is ' + this.object.revision);
+                }
+            });
+    }
+
+    processUpdate(data, updateObject, handleConflict) {
         // api process logic
         // if (data.name)
         const newObj = _.cloneDeep(this.object);
-        newObj.name = data.name;
-
+        updateObject(newObj, data);
 
         // general logic to figure out the increment
         const previousObj = this.object;
         const incrementalChange = {};
         newObj.source = data.source;
 
+        // find out which data has changed
+        // we need to go deeper to find out differences
         _.forEach(_.keys(newObj), key => {
-            if (!_.isEqual(newObj[key], previousObj[key])) {
+            if (!_.isEqual(newObj[key], previousObj[key])) {//} && (_.isNull(newObj[key]) !== _.isNull(previousObj[key]))) {
                 incrementalChange[key] = newObj[key];
-                //incrementalChanges.push({ path: key, value: newObj[key], previous: previousObj[key] });
             }
         });
 
         if (data.revision < this.object.revision) {
-
-            if (!incrementalChange.name && incrementalChange.address) {
-                // accept change
-            }
-            // this change was not based on the most recent revision
-            if (rejectChangeBasedOnOldData) {
-                throw new Error('CONFLICT','This change was based on revision '+data.revision+' but the data was already modified and current revision is '+this.object.revision);
+            if (handleConflict(incrementalChange, previousObj, newObj)) {
+                throw new Error('CONFLICT', 'This change was based on revision ' + data.revision + ' but the data was already modified and current revision is ' + this.object.revision);
             }
             // the change is accepted to merge in current revision
         }
-
 
         // find out what is to be deleted too and put in incrementChange
         //
@@ -112,6 +124,7 @@ describe('Sync', function () {
     beforeEach(function () {
         objectV1 = {
             name: 'Minolo',
+            address: null,
             revision: 1
         };
 
@@ -137,15 +150,15 @@ describe('Sync', function () {
 
         browser1.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
-        const incrementalToV2 = server.process(data1);
+        const incrementalToV2 = server.updateHeaderApi(data1);
         expect(incrementalToV2.revision).toEqual(2);
         const objectV2 = _.cloneDeep(server.object);
         expect(objectV2).toEqual({
+            address: null,
             name: change1.name,
             source: browser1.id,
             revision: 2
         });
-
 
 
         let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
@@ -153,9 +166,10 @@ describe('Sync', function () {
         // browser is the author of the change, no impact. keep the new change
         browser1.receive(incrementalToV2);
 
-        const incrementalToV3 = server.process(v1ModifiedByBrowser1);
+        const incrementalToV3 = server.updateHeaderApi(v1ModifiedByBrowser1);
         const objectV3 = _.cloneDeep(server.object);
         expect(objectV3).toEqual({
+            address: null,
             name: changeMadeOnV1.name,
             source: browser1.id,
             revision: 3
@@ -187,13 +201,13 @@ describe('Sync', function () {
         // but is it a conflict to apply this change to V3?
         // if yes,  we do not need to do anything, the client has already rollback when it received the incrementalToV3
         try {
-            server.process(v1ModifiedByBrowser2, true);
+            server.updateHeaderApi(v1ModifiedByBrowser2, true);
         } catch (ex) {
             // browser displays that you lost changes, because someone else modified first
             expect(ex.message).toEqual('CONFLICT');
         }
         // but if server is considering not as conflict
-        const incrementalToV4 = server.process(v1ModifiedByBrowser2);
+        const incrementalToV4 = server.updateHeaderApi(v1ModifiedByBrowser2);
         const objectV4 = server.object;
 
         // browser did go to V3
