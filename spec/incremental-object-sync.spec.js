@@ -58,6 +58,123 @@ class Browser {
         delete this.object.stamp;
         this.untouchedObject = this.object;
     }
+
+    differenceBetween(jsonObj1, jsonObj2) {
+        const thisObj = this;
+        const objDifferences = {};
+        _.forEach(_.keys(jsonObj1), property => {
+            if (['id', 'revision'].indexOf(property) !== -1) {
+                // there is no need to compare this.
+                return;
+            }
+            if (_.isArray(jsonObj1[property])) {
+                const obj1Array = jsonObj1[property];
+                const obj2Array = jsonObj2[property];
+                if (_.isEmpty(obj2Array)) {
+                    objDifferences[property] = jsonObj1[property];
+                    return;
+                }
+
+                if (!obj1Array.length) {
+                    if (!obj2Array.length) {
+                        // objects are both empty, so equals
+                        return;
+                    }
+                    // obj2 is not empty
+                    // so obj1 does not have its data 
+                    objDifferences[property] = [];
+                    return;
+                }
+
+                // does obj1 has its content managed by ids
+                if (_.isNil(obj1Array[0].id)) {
+                    // no it is just a big array of data
+                    if (!_.isEqual(obj1Array, obj2Array)) {
+                        objDifferences[property] = obj1Array;
+                    }
+                    return;
+                }
+
+                // since objects have ids, let's dig in to get specific difference
+                const rowDifferences = [];
+                for (let obj1Row of obj1Array) {
+                    const id = obj1Row.id;
+                    const obj2Row = _.find(obj2Array, { id });
+                    if (obj2Row) {
+                        // is it updated?
+                        const r = thisObj.differenceBetween(obj1Row, obj2Row);
+                        if (!_.isEmpty(r)) {
+                            rowDifferences.push(_.assign({ id }, r));
+                        }
+                    } else {
+                        // row does not exist in the other obj
+                        rowDifferences.push(obj1Row);
+                    }
+                }
+                // any row is no longer in obj1
+                for (let obj2Row of obj2Array) {
+                    const id = obj2Row.id;
+                    const obj1Row = _.find(obj1Array, { id });
+                    if (!obj1Row) {
+                        rowDifferences.push({ id, $removed: true });
+                    }
+                }
+                if (rowDifferences.length) {
+                    objDifferences[property] = rowDifferences;
+                }
+            } else if (_.isObject(jsonObj1[property])) {
+                // what fields of the object have changed?
+                if (jsonObj2[property]) {
+                    objDifferences[property] = thisObj.differenceBetween(jsonObj1, jsonObj2);
+                } else {
+                    objDifferences[property] = jsonObj1[property];
+                }
+            } else if (jsonObj1[property] !== jsonObj2[property]) {//} && (_.isNull(newObj[key]) !== _.isNull(previousObj[key]))) {
+                // what value has changed
+                objDifferences[property] = jsonObj1[property];
+            }
+        });
+        return _.isEmpty(objDifferences) ? null : objDifferences;
+    }
+
+    mergeChanges(jsonObj, changes) {
+        const thisObj = this;
+        _.forEach(changes, (newValue, property) => {
+            if (property === 'id') {
+                // id will never be different. they are just here to identity rows that contains new values
+                return;
+            }
+            if (_.isArray(newValue)) {
+                const changeArray = newValue;
+                if (changeArray.length === 0 || _.isNil(changeArray[0].id)) {
+                    // a  array value is the new value
+                    // There is no id in the items, so there is no granular change.
+                    jsonObj[property] = changeArray;
+                } else {
+                    _.forEach(changeArray, changeRow => {
+                        const objRow = _.find(jsonObj[property], { id: changeRow.id });
+                        if (objRow) {
+                            if (changeRow.$removed) {
+                                _.remove(jsonObj[property], objRow);
+                            } else {
+                                thisObj.mergeChanges(objRow, changeRow);
+                            }
+                        } else {
+                            jsonObj[property].push(changeRow);
+                        }
+                    });
+                }
+
+                return;
+            }
+            if (_.isObject(newValue)) {
+                jsonObj[property] = _.assign(jsonObj[property], newValue);
+            } else {
+                jsonObj[property] = newValue;
+            }
+        });
+        return jsonObj;
+    }
 }
 
 class Server {
@@ -87,16 +204,8 @@ class Server {
 
         // general logic to figure out the increment
         const previousObj = this.object;
-        const incrementalChange = {};
         newObj.source = data.source;
-
-        // find out which data has changed
-        // we need to go deeper to find out differences
-        _.forEach(_.keys(newObj), key => {
-            if (!_.isEqual(newObj[key], previousObj[key])) {//} && (_.isNull(newObj[key]) !== _.isNull(previousObj[key]))) {
-                incrementalChange[key] = newObj[key];
-            }
-        });
+        const incrementalChange = this.retrieveIncrement(newObj, previousObj);
 
         if (data.revision < this.object.revision) {
             if (handleConflict(incrementalChange, previousObj, newObj)) {
@@ -114,6 +223,19 @@ class Server {
         incrementalChange.revision = this.object.revision;
         incrementalChange.stamp = data.stamp;
         incrementalChange.source = data.source;
+        return incrementalChange;
+    }
+
+    retrieveIncrement(newObj, previousObj) {
+        const incrementalChange = {};
+
+        // find out which data has changed
+        // we need to go deeper to find out differences
+        _.forEach(_.keys(newObj), key => {
+            if (!_.isEqual(newObj[key], previousObj[key])) {//} && (_.isNull(newObj[key]) !== _.isNull(previousObj[key]))) {
+                incrementalChange[key] = newObj[key];
+            }
+        });
         return incrementalChange;
     }
 }
@@ -135,8 +257,147 @@ describe('Sync', function () {
         server.object = _.cloneDeep(objectV1);
     });
 
+    it('get simple obj differences', function () {
+        objectV1 = {
+            name: 'Minolo',
+            tracks: [
+                {
+                    id: 1,
+                    display: 'Requirement'
+                },
+                {
+                    id: 2,
+                    display: 'Implementation'
+                }
+            ],
+            revision: 1
+        };
 
-    it('rebuild obj', function () {
+
+        const updatedObject = {
+            name: 'Maxolo',
+            tracks: [
+                {
+                    id: 1,
+                    display: 'Requirement Phase'
+                }
+            ],
+            revision: 1
+        };
+
+
+        const change = browser1.differenceBetween(updatedObject, objectV1);
+
+        console.info(JSON.stringify(change, null, 2));
+        expect(change).toEqual(
+            {
+                "name": "Maxolo",
+                "tracks": [
+                    {
+                        "id": 1,
+                        "display": "Requirement Phase"
+                    },
+                    {
+                        "id": 2,
+                        "$removed": true
+                    }
+                ]
+            }
+        );
+
+        const obj = _.clone(objectV1);
+        const syncedObj = browser1.mergeChanges(obj, change);
+        expect(syncedObj).toEqual(updatedObject);
+
+    });
+
+    it('update complex obj', function () {
+        objectV1 = {
+            name: 'Minolo',
+            tracks: [
+                {
+                    id: 1,
+                    display: 'Requirement',
+                    resources: [
+                        { id: 1, name: 'pedro' },
+                        { id: 2, name: 'pablo' },
+                        { id: 3, name: 'john' }
+                    ]
+                },
+                {
+                    id: 2,
+                    display: 'Implementation',
+                    resources: [
+                        { id: 1, name: 'thomas' }
+                    ]
+                }
+            ],
+            revision: 1
+        };
+
+
+        const updatedObject = {
+            name: 'Minolo',
+            tracks: [
+                {
+                    id: 1,
+                    display: 'Requirement',
+                    resources: [
+                        // peter is updated
+                        { id: 1, name: 'peter' },
+                        // pablo is removed
+                        { id: 3, name: 'john' },
+                        { id: 4, name: 'philip' },
+                    ]
+                },
+                {
+                    id: 2,
+                    display: 'Implementation',
+                    // all resources removed
+                    resources: []
+                }
+            ],
+            revision: 1
+        };
+
+
+        const change = browser1.differenceBetween(updatedObject, objectV1);
+
+        console.info(JSON.stringify(change, null, 2));
+        expect(change).toEqual(
+            {
+                "tracks": [
+                    {
+                        "id": 1,
+                        "resources": [
+                            {
+                                "id": 1,
+                                "name": "peter"
+                            },
+                            {
+                                "id": 4,
+                                "name": "philip"
+                            },
+                            {
+                                "id": 2,
+                                "$removed": true
+                            }
+                        ]
+                    },
+                    {
+                        "id": 2,
+                        "resources": []
+                    }
+                ]
+            }
+        );
+        const obj = _.clone(objectV1);
+        const syncedObj = browser1.mergeChanges(obj, change);
+        expect(syncedObj).toEqual(updatedObject);
+    });
+
+
+    xit('rebuild obj', function () {
         const change1 = {
             name: 'Maxolo'
         };
