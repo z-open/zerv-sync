@@ -55,7 +55,7 @@ class Browser {
         }
 
         // it is a valid increment, let's update the object with it
-        this.object = _.assign(this.object, incrementalChange);
+        this.object = syncHelper.mergeChanges(this.object, incrementalChange);
         delete this.object.stamp;
         this.untouchedObject = this.object;
     }
@@ -89,7 +89,7 @@ class Server {
         // general logic to figure out the increment
         const previousObj = this.object;
         newObj.source = data.source;
-        const incrementalChange = this.retrieveIncrement(newObj, previousObj);
+        const incrementalChange = syncHelper.differenceBetween(newObj, previousObj);
 
         if (data.revision < this.object.revision) {
             if (handleConflict(incrementalChange, previousObj, newObj)) {
@@ -161,7 +161,17 @@ describe('Sync', function () {
         expect(browser1.object).toEqual(objectV2);
     });
 
-    it('rebuild obj', function () {
+    it('simple sync initiated and received from a different browser', function () {
+        browser1.object = _.cloneDeep(objectV1);
+        browser2.object = _.cloneDeep(objectV1);
+        let data1 = browser1.sendChange(change1);
+        const incrementalToV2 = server.updateHeaderApi(data1);
+        const objectV2 = _.cloneDeep(server.object);
+        browser2.receive(incrementalToV2);
+        expect(browser2.object).toEqual(objectV2);
+    });
+
+    it('Updating a 2nd time before the receiving first sync on the same browser', function () {
         const changeMadeOnV1 = {
             name: 'Maxolo2'
         };
@@ -173,15 +183,6 @@ describe('Sync', function () {
         browser1.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
         const incrementalToV2 = server.updateHeaderApi(data1);
-        expect(incrementalToV2.revision).toEqual(2);
-        const objectV2 = _.cloneDeep(server.object);
-        expect(objectV2).toEqual({
-            address: null,
-            name: change1.name,
-            source: browser1.id,
-            revision: 2
-        });
-
 
         let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
         // the browser received the processed change, but it has already modifyied what it sent
