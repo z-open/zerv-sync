@@ -4,9 +4,48 @@ const syncHelper = require('../lib/sync.helper');
 describe('Sync Helper', function () {
 
 
-    it('get simple obj differences', function () {
+    it('get simple obj property differences', function () {
         const originalObject = {
             name: 'Minolo',
+            owner: {},
+            status: null,
+            settings: { param1: 'one', param2: 'two' },
+            revision: 1
+        };
+
+        const updatedObject = {
+            name: 'Maxolo',
+            owner: {},
+            status: null,
+            settings: { param1: '1' },
+            revision: 1
+        };
+
+        const change = syncHelper.differenceBetween(updatedObject, originalObject);
+
+        console.info(JSON.stringify(change, null, 2));
+        expect(change).toEqual(
+            {
+                "name": "Maxolo",
+                "settings": {
+                    "param1": "1",
+                    "param2": {
+                        "$removed": true
+                      }
+                }
+            }
+        );
+
+        const obj = _.clone(originalObject);
+        const syncedObj = syncHelper.mergeChanges(obj, change);
+        expect(syncedObj).toEqual(updatedObject);
+    });
+
+ 
+    it('get simple obj array differences', function () {
+        const originalObject = {
+            name: 'Minolo',
+            roles: [],
             tracks: [
                 {
                     id: 1,
@@ -22,7 +61,8 @@ describe('Sync Helper', function () {
 
 
         const updatedObject = {
-            name: 'Maxolo',
+            name: 'Minolo',
+            roles: [],
             tracks: [
                 {
                     id: 1,
@@ -38,7 +78,6 @@ describe('Sync Helper', function () {
         console.info(JSON.stringify(change, null, 2));
         expect(change).toEqual(
             {
-                "name": "Maxolo",
                 "tracks": [
                     {
                         "id": 1,
@@ -57,7 +96,7 @@ describe('Sync Helper', function () {
         expect(syncedObj).toEqual(updatedObject);
     });
 
-    it('update complex obj', function () {
+    it('get deep array differences', function () {
         const originalObject = {
             name: 'Minolo',
             tracks: [
