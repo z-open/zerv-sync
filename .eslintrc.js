@@ -4,7 +4,7 @@ module.exports = {
         'eslint-config-google',
     ],
     "parserOptions": {
-        "ecmaVersion": 6
+        "ecmaVersion": 2017
     },
     rules: {
         'no-invalid-this': 0,
@@ -16,6 +16,8 @@ module.exports = {
         'comma-dangle': 0,
 
         //node_modules/eslint/bin/eslint.js --fix 
-        'no-var': 1
+        'no-var': 1,
+        'arrow-parens':0,
+        'object-curly-spacing':0
     }
 }

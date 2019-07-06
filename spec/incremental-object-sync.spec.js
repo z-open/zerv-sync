@@ -62,13 +62,22 @@ class Browser {
 }
 
 class Server {
+    
     updateHeaderApi(data, rejectChangeBasedOnOldData) {
-        return this.processUpdate(
+        const fetchCurrentObjectRevision = () => Promise.resolve(this.object);
+        const saveUpdatedObject = (updatedObject) => {
+            this.object = updatedObject;
+            return Promise.resolve();
+        };
+
+        return syncHelper.processUpdate(
             data,
+            fetchCurrentObjectRevision,
             (objToUpdate, data) => {
                 objToUpdate.name = data.name;
                 objToUpdate.address = data.address || null;
             },
+            saveUpdatedObject,
             (incrementalChange, previousObj, newObj) => {
                 if (!incrementalChange.name && incrementalChange.address) {
                     // accept change
@@ -80,48 +89,20 @@ class Server {
             });
     }
 
-    processUpdate(data, updateObject, handleConflict) {
-        // api process logic
-        // if (data.name)
-        const newObj = _.cloneDeep(this.object);
-        updateObject(newObj, data);
 
-        // general logic to figure out the increment
-        const previousObj = this.object;
-        newObj.source = data.source;
-        const incrementalChange = syncHelper.differenceBetween(newObj, previousObj);
-
-        if (data.revision < this.object.revision) {
-            if (handleConflict(incrementalChange, previousObj, newObj)) {
-                throw new Error('CONFLICT', 'This change was based on revision ' + data.revision + ' but the data was already modified and current revision is ' + this.object.revision);
-            }
-            // the change is accepted to merge in current revision
-        }
-
-        // find out what is to be deleted too and put in incrementChange
-        //
-        this.object = newObj;
-        delete this.object.stamp;
-        this.object.revision++;
-
-        incrementalChange.revision = this.object.revision;
-        incrementalChange.stamp = data.stamp;
-        incrementalChange.source = data.source;
-        return incrementalChange;
+    updateApi(incrementalChanges) {
+        const fetchCurrentObjectRevision = () => this.object;
+        const saveUpdatedObject = (updatedObject) => this.object = updateObject;
+        // incremental changes are merged into the current version
+        return syncHelper.processUpdate(
+            incrementalChanges,
+            fetchCurrentObjectRevision,
+            syncHelper.mergeChanges, 
+            saveUpdatedObject
+            );
     }
 
-    retrieveIncrement(newObj, previousObj) {
-        const incrementalChange = {};
 
-        // find out which data has changed
-        // we need to go deeper to find out differences
-        _.forEach(_.keys(newObj), key => {
-            if (!_.isEqual(newObj[key], previousObj[key])) {//} && (_.isNull(newObj[key]) !== _.isNull(previousObj[key]))) {
-                incrementalChange[key] = newObj[key];
-            }
-        });
-        return incrementalChange;
-    }
 }
 
 describe('Sync', function () {
@@ -145,10 +126,10 @@ describe('Sync', function () {
         server.object = _.cloneDeep(objectV1);
     });
 
-    it('simple sync initiated and received from same browser', function () {
+    it('simple sync initiated and received from same browser', async (done) => {
         browser1.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
-        const incrementalToV2 = server.updateHeaderApi(data1);
+        const incrementalToV2 = await server.updateHeaderApi(data1);
         expect(incrementalToV2.revision).toEqual(2);
         const objectV2 = _.cloneDeep(server.object);
         expect(objectV2).toEqual({
@@ -159,19 +140,21 @@ describe('Sync', function () {
         });
         browser1.receive(incrementalToV2);
         expect(browser1.object).toEqual(objectV2);
+        done();
     });
 
-    it('simple sync initiated and received from a different browser', function () {
+    it('simple sync initiated and received from a different browser', async function (done) {
         browser1.object = _.cloneDeep(objectV1);
         browser2.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
-        const incrementalToV2 = server.updateHeaderApi(data1);
+        const incrementalToV2 = await server.updateHeaderApi(data1);
         const objectV2 = _.cloneDeep(server.object);
         browser2.receive(incrementalToV2);
         expect(browser2.object).toEqual(objectV2);
+        done();
     });
 
-    it('Updating a 2nd time before the receiving first sync on the same browser', function () {
+    it('Updating a 2nd time before the receiving first sync on the same browser', async function (done) {
         const changeMadeOnV1 = {
             name: 'Maxolo2'
         };
@@ -182,14 +165,14 @@ describe('Sync', function () {
 
         browser1.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
-        const incrementalToV2 = server.updateHeaderApi(data1);
+        const incrementalToV2 = await server.updateHeaderApi(data1);
 
         let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
         // the browser received the processed change, but it has already modifyied what it sent
         // browser is the author of the change, no impact. keep the new change
         browser1.receive(incrementalToV2);
 
-        const incrementalToV3 = server.updateHeaderApi(v1ModifiedByBrowser1);
+        const incrementalToV3 = await server.updateHeaderApi(v1ModifiedByBrowser1);
         const objectV3 = _.cloneDeep(server.object);
         expect(objectV3).toEqual({
             address: null,
@@ -224,13 +207,13 @@ describe('Sync', function () {
         // but is it a conflict to apply this change to V3?
         // if yes,  we do not need to do anything, the client has already rollback when it received the incrementalToV3
         try {
-            server.updateHeaderApi(v1ModifiedByBrowser2, true);
+            await server.updateHeaderApi(v1ModifiedByBrowser2, true);
         } catch (ex) {
             // browser displays that you lost changes, because someone else modified first
             expect(ex.message).toEqual('CONFLICT');
         }
         // but if server is considering not as conflict
-        const incrementalToV4 = server.updateHeaderApi(v1ModifiedByBrowser2);
+        const incrementalToV4 = await server.updateHeaderApi(v1ModifiedByBrowser2);
         const objectV4 = server.object;
 
         // browser did go to V3
@@ -238,5 +221,6 @@ describe('Sync', function () {
         // but then here they appear with V4
         browser2.receive(incrementalToV4);
         expect(browser2.object).toEqual(objectV4);
+        done();
     });
 });
