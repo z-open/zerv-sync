@@ -16,7 +16,7 @@ class Browser {
             this.untouchedObject = _.cloneDeep(this.object);
         }
         // ui would change object
-        this.object.name = data.name;
+        this.object.city = data.city;
         // then it is stamped before going thru network.
         data.stamp = Date.now();
         data.source = this.id;
@@ -62,11 +62,20 @@ class Browser {
 }
 
 class Server {
-    
+    constructor() {
+        this.cache = [];
+    }
+
+    setInitial(obj) {
+        this.cache = [_.cloneDeep(obj)];
+    }
+
     updateHeaderApi(data, rejectChangeBasedOnOldData) {
-        const fetchCurrentObjectRevision = () => Promise.resolve(this.object);
+        const fetchCurrentObjectRevision = (revision) => _.isNil(revision) ? this.cache[this.cache.length - 1] : _.find(this.cache, {revision});
         const saveUpdatedObject = (updatedObject) => {
             this.object = updatedObject;
+            this.object.revision++;
+            this.cache.push(_.cloneDeep(this.object));
             return Promise.resolve();
         };
 
@@ -74,19 +83,20 @@ class Server {
             data,
             fetchCurrentObjectRevision,
             (objToUpdate, data) => {
-                objToUpdate.name = data.name;
-                objToUpdate.address = data.address || null;
+                if (!_.isUndefined(data.city)) {
+                    objToUpdate.city = data.city || null;
+                }
+
+                if (!_.isUndefined(data.zipCode)) {
+                    objToUpdate.zipCode = data.zipCode || null;
+                }
+
+                if (!_.isUndefined(data.phoneNumber)) {
+                    objToUpdate.phoneNumber = data.phoneNumber || null;
+                }
             },
             saveUpdatedObject,
-            (incrementalChange, previousObj, newObj) => {
-                if (!incrementalChange.name && incrementalChange.address) {
-                    // accept change
-                }
-                // this change was not based on the most recent revision
-                if (rejectChangeBasedOnOldData) {
-                    throw new Error('CONFLICT', 'This change was based on revision ' + data.revision + ' but the data was already modified and current revision is ' + this.object.revision);
-                }
-            });
+            this.handleConflict);
     }
 
 
@@ -97,33 +107,31 @@ class Server {
         return syncHelper.processUpdate(
             incrementalChanges,
             fetchCurrentObjectRevision,
-            syncHelper.mergeChanges, 
+            syncHelper.mergeChanges,
             saveUpdatedObject
             );
     }
-
-
 }
 
-describe('Sync', function () {
+describe('Sync', function() {
     let browser1, browser2, server;
     let objectV1;
     let change1;
-    beforeEach(function () {
+    beforeEach(function() {
         objectV1 = {
-            name: 'Minolo',
-            address: null,
+            city: 'Minolo',
+            zipCode: null,
             revision: 1
         };
 
         change1 = {
-            name: 'Maxolo'
+            city: 'Maxolo'
         };
 
         browser1 = new Browser(1);
         browser2 = new Browser(2);
         server = new Server();
-        server.object = _.cloneDeep(objectV1);
+        server.setInitial(objectV1);
     });
 
     it('simple sync initiated and received from same browser', async (done) => {
@@ -133,8 +141,8 @@ describe('Sync', function () {
         expect(incrementalToV2.revision).toEqual(2);
         const objectV2 = _.cloneDeep(server.object);
         expect(objectV2).toEqual({
-            address: null,
-            name: change1.name,
+            zipCode: null,
+            city: change1.city,
             source: browser1.id,
             revision: 2
         });
@@ -143,7 +151,7 @@ describe('Sync', function () {
         done();
     });
 
-    it('simple sync initiated and received from a different browser', async function (done) {
+    it('simple sync initiated and received from a different browser', async function(done) {
         browser1.object = _.cloneDeep(objectV1);
         browser2.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
@@ -154,14 +162,16 @@ describe('Sync', function () {
         done();
     });
 
-    it('Updating a 2nd time before the receiving first sync on the same browser', async function (done) {
+    it('Updating a 2nd time before the receiving first sync on the same browser', async function(done) {
         const changeMadeOnV1 = {
-            name: 'Maxolo2'
+            city: 'Maxolo2'
         };
 
         const differentChangeMadeOnV1 = {
-            name: 'Maxolito'
+            city: 'Maxolito'
         };
+
+        server.handleConflict = handleConflictOnCityAndZipCode;
 
         browser1.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
@@ -175,8 +185,8 @@ describe('Sync', function () {
         const incrementalToV3 = await server.updateHeaderApi(v1ModifiedByBrowser1);
         const objectV3 = _.cloneDeep(server.object);
         expect(objectV3).toEqual({
-            address: null,
-            name: changeMadeOnV1.name,
+            zipCode: null,
+            city: changeMadeOnV1.city,
             source: browser1.id,
             revision: 3
         });
@@ -210,7 +220,7 @@ describe('Sync', function () {
             await server.updateHeaderApi(v1ModifiedByBrowser2, true);
         } catch (ex) {
             // browser displays that you lost changes, because someone else modified first
-            expect(ex.message).toEqual('CONFLICT');
+            expect(ex.message).toEqual('RULE_CONFLICT');
         }
         // but if server is considering not as conflict
         const incrementalToV4 = await server.updateHeaderApi(v1ModifiedByBrowser2);
@@ -223,4 +233,104 @@ describe('Sync', function () {
         expect(browser2.object).toEqual(objectV4);
         done();
     });
+
+
+    it('Simulateous updates should not conflict and be merged due to valid rule', async function(done) {
+        const changeMadeOnV1 = {
+            zipCode: '33319'
+        };
+
+        const differentChangeMadeOnV1 = {
+            phoneNumber: '954-274',
+        };
+
+        browser1.object = _.cloneDeep(objectV1);
+        browser2.object = _.cloneDeep(objectV1);
+        server.setInitial(objectV1);
+        server.handleConflict = handleConflictOnCityAndZipCode;
+
+
+        let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
+        let v1ModifiedByBrowser2 = browser2.sendChange(differentChangeMadeOnV1);
+        await server.updateHeaderApi(v1ModifiedByBrowser1);
+        // the change is accepted because the telephone number can be modified at the same time.
+        await server.updateHeaderApi(v1ModifiedByBrowser2);
+        const objectV3 = _.cloneDeep(server.object);
+        expect(objectV3).toEqual({
+            city: objectV1.city,
+            zipCode: changeMadeOnV1.zipCode,
+            phoneNumber: differentChangeMadeOnV1.phoneNumber,
+            source: browser2.id,
+            revision: 3
+        });
+        done();
+    });
+
+    it('Simulateous updates should conflict due to rule', async function(done) {
+        const changeMadeOnV1 = {
+            zipCode: '33319'
+        };
+
+        const differentChangeMadeOnV1 = {
+            city: 'Maxolo2'
+        };
+
+        browser1.object = _.cloneDeep(objectV1);
+        browser2.object = _.cloneDeep(objectV1);
+        server.setInitial(objectV1);
+        server.handleConflict = handleConflictOnCityAndZipCode;
+
+        let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
+        let v1ModifiedByBrowser2 = browser2.sendChange(differentChangeMadeOnV1);
+        await server.updateHeaderApi(v1ModifiedByBrowser1);
+        try {
+            // the new city change will not be accepted because the zipcode was modified by someone else at the same time. We don't want anyone to change the city if he is not aware that the city has been changes
+            await server.updateHeaderApi(v1ModifiedByBrowser2);
+        } catch (ex) {
+            // browser displays that you lost changes, because someone else modified first
+            expect(ex.message).toEqual('RULE_CONFLICT');
+        }
+        done();
+    });
+
+    it('Simulateous updates should conflict due revision management rule', async function(done) {
+        const changeMadeOnV1 = {
+            zipCode: '33319'
+        };
+
+        const differentChangeMadeOnV1 = {
+            city: 'Maxolo2'
+        };
+
+        browser1.object = _.cloneDeep(objectV1);
+        browser2.object = _.cloneDeep( _.assign(
+            {},
+            objectV1,
+            {revision: 0}
+        ));
+
+        let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);
+        let v1ModifiedByBrowser2 = browser2.sendChange(differentChangeMadeOnV1);
+
+        await server.updateHeaderApi(v1ModifiedByBrowser1);
+        try {
+            await server.updateHeaderApi(v1ModifiedByBrowser2);
+            // the revision was based on old object
+        } catch (ex) {
+            // browser displays that you lost changes, because someone else modified first
+            expect(ex.message).toEqual('REVISION_CONFLICT');
+        }
+        done();
+    });
 });
+
+
+function handleConflictOnCityAndZipCode(incrementalChange, data, previousObj, newObj) {
+    // if the city was changed but the current version has also a change in the zip code, in the example, it is a conflict, otherwise if the zip was not changed, the change is accepted
+    if (_.isEmpty(data.zipCode) && !_.isEmpty(data.city) && !_.isEmpty(incrementalChange.zipCode)) {
+        return true;
+        // reject changes
+    }
+    // otherwise no conflict even if the revision updated is way above the one that originated the change.
+    return false;
+}
