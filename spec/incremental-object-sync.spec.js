@@ -19,9 +19,10 @@ class Browser {
         this.object.city = data.city;
         // then it is stamped before going thru network.
         data.stamp = Date.now();
-        data.source = this.id;
+        data.timestamp = { sessionId: this.id };
+        data.id = this.object.id;
         data.revision = this.object.revision;
-        this.object.source = data.source;
+        this.object.timestamp.sessionId = data.timestamp.sessionId;
         this.object.stamp = data.stamp;
         return data;
     }
@@ -29,7 +30,7 @@ class Browser {
     receive(incrementalChange) {
         // has the browser modified the object?
         if (this.object.stamp) {
-            if (this.object.source === incrementalChange.source) {
+            if (this.object.timestamp.sessionId === incrementalChange.timestamp.sessionId) {
                 // just received a change that was made by this browser!
                 this.object.revision = incrementalChange.revision;
                 // nothing to increment
@@ -71,7 +72,8 @@ class Server {
     }
 
     updateHeaderApi(data, rejectChangeBasedOnOldData) {
-        const fetchCurrentObjectRevision = (revision) => _.isNil(revision) ? this.cache[this.cache.length - 1] : _.find(this.cache, {revision});
+        const fetchCurrentObjectRevision = (id, revision) =>
+            _.isNil(revision) ? this.cache[this.cache.length - 1] : _.find(this.cache, { revision });
         const saveUpdatedObject = (updatedObject) => {
             this.object = updatedObject;
             this.object.revision++;
@@ -109,19 +111,21 @@ class Server {
             fetchCurrentObjectRevision,
             syncHelper.mergeChanges,
             saveUpdatedObject
-            );
+        );
     }
 }
 
-describe('Sync', function() {
+describe('Sync', function () {
     let browser1, browser2, server;
     let objectV1;
     let change1;
-    beforeEach(function() {
+    beforeEach(function () {
         objectV1 = {
+            id: 'obj1',
             city: 'Minolo',
             zipCode: null,
-            revision: 1
+            revision: 1,
+            timestamp: {}
         };
 
         change1 = {
@@ -141,9 +145,12 @@ describe('Sync', function() {
         expect(incrementalToV2.revision).toEqual(2);
         const objectV2 = _.cloneDeep(server.object);
         expect(objectV2).toEqual({
+            id: 'obj1',
             zipCode: null,
             city: change1.city,
-            source: browser1.id,
+            timestamp: {
+                sessionId: browser1.id
+            },
             revision: 2
         });
         browser1.receive(incrementalToV2);
@@ -151,7 +158,7 @@ describe('Sync', function() {
         done();
     });
 
-    it('simple sync initiated and received from a different browser', async function(done) {
+    it('simple sync initiated and received from a different browser', async function (done) {
         browser1.object = _.cloneDeep(objectV1);
         browser2.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
@@ -162,7 +169,7 @@ describe('Sync', function() {
         done();
     });
 
-    it('Updating a 2nd time before the receiving first sync on the same browser', async function(done) {
+    it('Updating a 2nd time before the receiving first sync on the same browser', async function (done) {
         const changeMadeOnV1 = {
             city: 'Maxolo2'
         };
@@ -185,9 +192,12 @@ describe('Sync', function() {
         const incrementalToV3 = await server.updateHeaderApi(v1ModifiedByBrowser1);
         const objectV3 = _.cloneDeep(server.object);
         expect(objectV3).toEqual({
+            id: 'obj1',
             zipCode: null,
             city: changeMadeOnV1.city,
-            source: browser1.id,
+            timestamp: {
+                sessionId: browser1.id
+            },
             revision: 3
         });
         // the browser received the processed change, but it is what it already has.
@@ -214,14 +224,16 @@ describe('Sync', function() {
         expect(browser2.object).toEqual(objectV3);
 
         // server has already processed V2 and has a V3 state
-        // but is it a conflict to apply this change to V3?
-        // if yes,  we do not need to do anything, the client has already rollback when it received the incrementalToV3
         try {
+            // default conflict handling is based on revision number
+            server.handleConflict = null;
             await server.updateHeaderApi(v1ModifiedByBrowser2, true);
+            done.fail('Shoud conflict');
         } catch (ex) {
             // browser displays that you lost changes, because someone else modified first
-            expect(ex.message).toEqual('RULE_CONFLICT');
+            expect(ex.message).toEqual('REVISION_CONFLICT');
         }
+        server.handleConflict = handleConflictOnCityAndZipCode;
         // but if server is considering not as conflict
         const incrementalToV4 = await server.updateHeaderApi(v1ModifiedByBrowser2);
         const objectV4 = server.object;
@@ -235,7 +247,7 @@ describe('Sync', function() {
     });
 
 
-    it('Simulateous updates should not conflict and be merged due to valid rule', async function(done) {
+    it('Simulateous updates should not conflict and be merged due to valid rule', async function (done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
@@ -257,16 +269,17 @@ describe('Sync', function() {
         await server.updateHeaderApi(v1ModifiedByBrowser2);
         const objectV3 = _.cloneDeep(server.object);
         expect(objectV3).toEqual({
+            id: 'obj1',
             city: objectV1.city,
             zipCode: changeMadeOnV1.zipCode,
             phoneNumber: differentChangeMadeOnV1.phoneNumber,
-            source: browser2.id,
+            timestamp: { sessionId: browser2.id },
             revision: 3
         });
         done();
     });
 
-    it('Simulateous updates should conflict due to rule', async function(done) {
+    it('Simulateous updates should conflict due to rule', async function (done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
@@ -293,7 +306,7 @@ describe('Sync', function() {
         done();
     });
 
-    it('Simulateous updates should conflict due revision management rule', async function(done) {
+    it('Simulateous updates should conflict due revision management rule', async function (done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
@@ -303,10 +316,10 @@ describe('Sync', function() {
         };
 
         browser1.object = _.cloneDeep(objectV1);
-        browser2.object = _.cloneDeep( _.assign(
+        browser2.object = _.cloneDeep(_.assign(
             {},
             objectV1,
-            {revision: 0}
+            { revision: 0 }
         ));
 
         let v1ModifiedByBrowser1 = browser1.sendChange(changeMadeOnV1);

@@ -6,6 +6,7 @@ describe('Sync Helper', function () {
 
     it('get simple obj property differences', function () {
         const originalObject = {
+            id: 'obj1',
             name: 'Minolo',
             owner: {},
             status: null,
@@ -14,6 +15,7 @@ describe('Sync Helper', function () {
         };
 
         const updatedObject = {
+            id: 'obj1',
             name: 'Maxolo',
             owner: {},
             status: null,
