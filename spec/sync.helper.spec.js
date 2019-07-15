@@ -1,10 +1,8 @@
 const _ = require('lodash');
 const syncHelper = require('../lib/sync.helper');
 
-describe('Sync Helper', function () {
-
-
-    it('get simple obj property differences', function () {
+describe('Sync Helper', function() {
+    it('get simple obj property differences', function() {
         const originalObject = {
             id: 'obj1',
             name: 'Minolo',
@@ -28,11 +26,11 @@ describe('Sync Helper', function () {
         console.info(JSON.stringify(change, null, 2));
         expect(change).toEqual(
             {
-                "name": "Maxolo",
-                "settings": {
-                    "param1": "1",
-                    "param2": {
-                        "$removed": true
+                'name': 'Maxolo',
+                'settings': {
+                    'param1': '1',
+                    'param2': {
+                        '$removed': true
                       }
                 }
             }
@@ -43,8 +41,8 @@ describe('Sync Helper', function () {
         expect(syncedObj).toEqual(updatedObject);
     });
 
- 
-    it('get simple obj array differences', function () {
+
+    it('get simple obj array differences', function() {
         const originalObject = {
             name: 'Minolo',
             roles: [],
@@ -80,14 +78,14 @@ describe('Sync Helper', function () {
         console.info(JSON.stringify(change, null, 2));
         expect(change).toEqual(
             {
-                "tracks": [
+                'tracks': [
                     {
-                        "id": 1,
-                        "display": "Requirement Phase"
+                        'id': 1,
+                        'display': 'Requirement Phase'
                     },
                     {
-                        "id": 2,
-                        "$removed": true
+                        'id': 2,
+                        '$removed': true
                     }
                 ]
             }
@@ -98,7 +96,7 @@ describe('Sync Helper', function () {
         expect(syncedObj).toEqual(updatedObject);
     });
 
-    it('get deep array differences', function () {
+    it('get deep array differences', function() {
         const originalObject = {
             name: 'Minolo',
             tracks: [
@@ -153,27 +151,27 @@ describe('Sync Helper', function () {
         console.info(JSON.stringify(change, null, 2));
         expect(change).toEqual(
             {
-                "tracks": [
+                'tracks': [
                     {
-                        "id": 1,
-                        "resources": [
+                        'id': 1,
+                        'resources': [
                             {
-                                "id": 1,
-                                "name": "peter"
+                                'id': 1,
+                                'name': 'peter'
                             },
                             {
-                                "id": 4,
-                                "name": "philip"
+                                'id': 4,
+                                'name': 'philip'
                             },
                             {
-                                "id": 2,
-                                "$removed": true
+                                'id': 2,
+                                '$removed': true
                             }
                         ]
                     },
                     {
-                        "id": 2,
-                        "resources": []
+                        'id': 2,
+                        'resources': []
                     }
                 ]
             }
