@@ -1,6 +1,7 @@
 const _ = require('lodash');
 const zlog = require('zlog4js');
 const syncHelper = require('../lib/sync.helper');
+const updateService = require('../lib/update.service');
 zlog.setRootLogger('none');
 
 const zervCore = require('zerv-core');
@@ -72,33 +73,44 @@ class Server {
     }
 
     updateHeaderApi(data, rejectChangeBasedOnOldData) {
-        const fetchCurrentObjectRevision = (id, revision) =>
-            _.isNil(revision) ? this.cache[this.cache.length - 1] : _.find(this.cache, { revision });
-        const saveUpdatedObject = (updatedObject) => {
-            this.object = updatedObject;
-            this.object.revision++;
-            this.cache.push(_.cloneDeep(this.object));
+        const thisServer = this;
+
+        return updateService.process(
+            data,
+            fetchCurrentObjectRevision,
+            saveUpdatedObject,
+            {
+                updateObjectData,
+                handleConflict: this.handleConflict,
+                fetchObjectRevision
+            });
+
+        function saveUpdatedObject(updatedObject) {
+            thisServer.object = updatedObject;
+            thisServer.object.revision++;
+            thisServer.cache.push(_.cloneDeep(thisServer.object));
             return Promise.resolve();
         };
 
-        return syncHelper.processUpdate(
-            data,
-            fetchCurrentObjectRevision,
-            (objToUpdate, data) => {
-                if (!_.isUndefined(data.city)) {
-                    objToUpdate.city = data.city || null;
-                }
+        function fetchCurrentObjectRevision(id) {
+            return thisServer.cache[thisServer.cache.length - 1];
+        }
 
-                if (!_.isUndefined(data.zipCode)) {
-                    objToUpdate.zipCode = data.zipCode || null;
-                }
+        function fetchObjectRevision(id, revision) {
+            return _.find(thisServer.cache, { revision });
+        }
 
-                if (!_.isUndefined(data.phoneNumber)) {
-                    objToUpdate.phoneNumber = data.phoneNumber || null;
-                }
-            },
-            saveUpdatedObject,
-            this.handleConflict);
+        function updateObjectData(objToUpdate, data)  {
+            if (!_.isUndefined(data.city)) {
+                objToUpdate.city = data.city || null;
+            }
+            if (!_.isUndefined(data.zipCode)) {
+                objToUpdate.zipCode = data.zipCode || null;
+            }
+            if (!_.isUndefined(data.phoneNumber)) {
+                objToUpdate.phoneNumber = data.phoneNumber || null;
+            }
+        }
     }
 
 
@@ -106,7 +118,7 @@ class Server {
         const fetchCurrentObjectRevision = () => this.object;
         const saveUpdatedObject = (updatedObject) => this.object = updateObject;
         // incremental changes are merged into the current version
-        return syncHelper.processUpdate(
+        return updateService.process(
             incrementalChanges,
             fetchCurrentObjectRevision,
             syncHelper.mergeChanges,
@@ -115,7 +127,7 @@ class Server {
     }
 }
 
-describe('Sync', function () {
+describe('Update Sync', function () {
     let browser1, browser2, server;
     let objectV1;
     let change1;
