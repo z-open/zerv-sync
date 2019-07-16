@@ -17,6 +17,7 @@ describe('Sync Helper', function() {
             name: 'Maxolo',
             owner: {},
             status: null,
+            description: null,
             settings: { param1: '1' },
             revision: 1
         };
@@ -38,6 +39,8 @@ describe('Sync Helper', function() {
 
         const obj = _.clone(originalObject);
         const syncedObj = syncHelper.mergeChanges(obj, change);
+        // but syncedObj would not have comment since it was null
+        delete updatedObject.description;
         expect(syncedObj).toEqual(updatedObject);
     });
 
@@ -53,7 +56,7 @@ describe('Sync Helper', function() {
                 },
                 {
                     id: 2,
-                    display: 'Implementation'
+                    display: 'Implementation',
                 }
             ],
             revision: 1
@@ -66,7 +69,8 @@ describe('Sync Helper', function() {
             tracks: [
                 {
                     id: 1,
-                    display: 'Requirement Phase'
+                    display: 'Requirement Phase',
+                    description: null,
                 }
             ],
             revision: 1
@@ -93,6 +97,8 @@ describe('Sync Helper', function() {
 
         const obj = _.clone(originalObject);
         const syncedObj = syncHelper.mergeChanges(obj, change);
+        // but syncedObj would not have description since it was null
+        delete updatedObject.tracks[0].description;
         expect(syncedObj).toEqual(updatedObject);
     });
 
@@ -132,7 +138,7 @@ describe('Sync Helper', function() {
                         { id: 1, name: 'peter' },
                         // pablo is removed
                         { id: 3, name: 'john' },
-                        { id: 4, name: 'philip' },
+                        { id: 4, name: 'philip', comment: null },
                     ]
                 },
                 {
@@ -178,6 +184,8 @@ describe('Sync Helper', function() {
         );
         const obj = _.clone(originalObject);
         const syncedObj = syncHelper.mergeChanges(obj, change);
+        // but syncedObj would not have comment since it was null
+        delete updatedObject.tracks[0].resources[2].comment;
         expect(syncedObj).toEqual(updatedObject);
     });
 });
