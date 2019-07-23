@@ -12,9 +12,15 @@ This node module handles the data synchronization on the server side over socket
 zerv-core middleware
 First, set up your node server to use express with the zerv-core module.
 
+
 zerv-ng-sync client
 It requires the client to use the zerv-ng-sync bower package to establish the syncing process.
 
+### install
+```
+npm install git://github.com/z-open/zerv-sync#1.1.4
+```
+Use the appropriate release number
 
 ### Principle
 
