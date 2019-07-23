@@ -26,7 +26,8 @@
     "request": "^2.88.0",
     "uuid": "^2.0.1",
     "xtend": "~2.1.2",
-    "zlog4js": "^1.0.5"
+    "zlog4js": "^1.0.5",
+    "zjsonbin": "z-open/zjsonbin#1.0.1"
   },
   "devDependencies": {
     "eslint": "^4.3.0",

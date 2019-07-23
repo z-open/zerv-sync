@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const zlog = require('zlog4js');
-const syncHelper = require('../lib/sync.helper');
+const zjsonbin = require('zjsonbin');
 const updateService = require('../lib/update.service');
 zlog.setRootLogger('none');
 
@@ -57,7 +57,7 @@ class Browser {
         }
 
         // it is a valid increment, let's update the object with it
-        this.object = syncHelper.mergeChanges(this.object, incrementalChange);
+        this.object = zjsonbin.mergeChanges(this.object, incrementalChange);
         delete this.object.stamp;
         this.untouchedObject = this.object;
     }
@@ -100,7 +100,7 @@ class Server {
             return _.find(thisServer.cache, { revision });
         }
 
-        function updateObjectData(objToUpdate, data)  {
+        function updateObjectData(objToUpdate, data) {
             if (!_.isUndefined(data.city)) {
                 objToUpdate.city = data.city || null;
             }
@@ -121,17 +121,17 @@ class Server {
         return updateService.process(
             incrementalChanges,
             fetchCurrentObjectRevision,
-            syncHelper.mergeChanges,
+            zjsonbin.mergeChanges,
             saveUpdatedObject
         );
     }
 }
 
-describe('Update Sync', function () {
+describe('Update Sync', function() {
     let browser1, browser2, server;
     let objectV1;
     let change1;
-    beforeEach(function () {
+    beforeEach(function() {
         objectV1 = {
             id: 'obj1',
             city: 'Minolo',
@@ -170,7 +170,7 @@ describe('Update Sync', function () {
         done();
     });
 
-    it('simple sync initiated and received from a different browser', async function (done) {
+    it('simple sync initiated and received from a different browser', async function(done) {
         browser1.object = _.cloneDeep(objectV1);
         browser2.object = _.cloneDeep(objectV1);
         let data1 = browser1.sendChange(change1);
@@ -181,7 +181,7 @@ describe('Update Sync', function () {
         done();
     });
 
-    it('Updating a 2nd time before the receiving first sync on the same browser', async function (done) {
+    it('Updating a 2nd time before the receiving first sync on the same browser', async function(done) {
         const changeMadeOnV1 = {
             city: 'Maxolo2'
         };
@@ -259,7 +259,7 @@ describe('Update Sync', function () {
     });
 
 
-    it('Simulateous updates should not conflict and be merged due to valid rule', async function (done) {
+    it('Simulateous updates should not conflict and be merged due to valid rule', async function(done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
@@ -291,7 +291,7 @@ describe('Update Sync', function () {
         done();
     });
 
-    it('Simulateous updates should conflict due to rule', async function (done) {
+    it('Simulateous updates should conflict due to rule', async function(done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
@@ -318,7 +318,7 @@ describe('Update Sync', function () {
         done();
     });
 
-    it('Simulateous updates should conflict due revision management rule', async function (done) {
+    it('Simulateous updates should conflict due revision management rule', async function(done) {
         const changeMadeOnV1 = {
             zipCode: '33319'
         };
