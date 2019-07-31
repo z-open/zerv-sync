@@ -135,7 +135,7 @@ ex:
              format: function(scienceArticle) {
                  return formatScienceArticleToMagazine(scienceArticle)
              },
-             filter: function(scienceArticle,subscriptionParams) {
+             filter: function(scienceArticle,subscriptionParams, user, tenantId) {
                  return subscriptionParams.type === scienceArticle.field
              }
 
