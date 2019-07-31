@@ -12,9 +12,16 @@ This node module handles the data synchronization on the server side over socket
 zerv-core middleware
 First, set up your node server to use express with the zerv-core module.
 
+
 zerv-ng-sync client
 It requires the client to use the zerv-ng-sync bower package to establish the syncing process.
 
+### install
+```
+npm install git://github.com/z-open/zerv-sync#1.1.4
+```
+Use the appropriate release number.
+Tested with node: v10.15.1
 
 ### Principle
 
@@ -212,7 +219,7 @@ Increase constant CURRENT_SYNC_VERSION to prevent incompatible bower client libr
 
 #### object property change notification.
 Publication shall have an option to be notified not only on object changes but even more precisely to the property level.
-Then a publication shall only push an object to its subscribers when some specific object properties have changed.
+Then a publication shall only push an object to its subscribers when some specific object properties have changed (or incremental changes).
 This will reduce network activity and increase performance.
 
 #### Always at the notification listener level
