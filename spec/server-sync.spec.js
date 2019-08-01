@@ -172,7 +172,7 @@ describe('Sync', function() {
 
         it('should subscribe and receive all data (not a diff)', function(done) {
             waitForNotification().then(function(sub) {
-                expect(sub.diff).toBe(false);
+                expect(sub.diff).not.toBe(true);
                 done();
             });
         });
