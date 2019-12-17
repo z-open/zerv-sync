@@ -3,8 +3,8 @@ module.exports = {
     extends: [
         'eslint-config-google',
     ],
-    "parserOptions": {
-        "ecmaVersion": 2017
+    parserOptions: {
+        "ecmaVersion": 2018
     },
     rules: {
         'no-invalid-this': 0,
