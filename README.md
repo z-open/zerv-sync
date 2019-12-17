@@ -183,6 +183,13 @@ Provide a function for third parameters.  The params from the subscriptions migh
           additionalParams.tenantId = tenantId;
       }
 
+#### allServers: {boolean}
+This is used with zerv.onChange which listens to the notifications of the server side.
+
+By default, notifications are only emitted to servers which are currently handling user subscriptions for the tenant specified in the notifications.
+This prevents from having notifications sent to servers which are not connected to any user of the notified tenant and save network, memory and cpu resources.
+
+However, it might be sometimes useful to notify all servers then the zerv.onChange of all servers will receive the data even though they might not be handling the tenant.
 
 ### Zerv farm
 
