@@ -224,13 +224,15 @@ describe('Sync', function() {
     });
 
     it('should receive a removal EVEN THOUGH the revision was not increased', function(done) {
+      const currentTime = Date.now();
       waitForNotification().then(function(sub1) {
         // server does keep track of what is on the client
         sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
         waitForNotification().then(function(sub2) {
           expect(sub2.diff).toBe(true);
           expect(sub2.records.length).toBe(1);
-          expect(sub2.records[0].revision).toBe(7.01);
+          const expectedRevision = 7 + Math.trunc(currentTime /100)/Math.pow(10, 11);
+          expect(sub2.records[0].revision).toBe(expectedRevision);
           // if there is a consecutive update (or even concurrent), the deleted will not interfer
           //
           // this cover the following issue on concurrent removal and update
