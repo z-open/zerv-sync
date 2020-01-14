@@ -339,34 +339,83 @@ describe('Sync', function() {
   });
 
   describe('checkIfMatch', function() {
-    it('should exclude records with unmatched params (subs.setParams)', function() {
+    it('should exclude records with unmatched params (subs.setParams)', async function() {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { type: 'fiction' });
-      expect(subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(false);
+      expect(await subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(false);
     });
 
-    it('should always match records with params cacheLevel', function() {
+    it('should always match records with params cacheLevel', async function() {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { cacheLevel: 0 });
-      expect(subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(true);
+      expect(await subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(true);
+    });
+
+    describe('with pre custom filter', function() {
+      beforeEach(function() {
+        sync.publish(
+            'filteredMagazines',
+            function() {
+              return [];
+            },
+            {
+              MAGAZINE_DATA: {
+                filter: (magazine, subscriptionParams, user, tenantId) => {
+                  if (magazine.name.indexOf('man')!==-1) {
+                    return null;
+                  }
+                  return false;
+                }
+              }
+            }
+        );
+      });
+
+      it('should match the object with the custom filter and subscription params so that it can be sent to the subscription', async () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'fiction' });
+        // magazin1 does have 'man' in its name and is a fiction book
+        expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(true);
+      });
+      it('should match the object with the custom filter; however object does not match the subscription params so that it can NOT be sent to the subscription', async () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'business' });
+        // magazin1 does have 'man' in its name but is not a business book
+        expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(false);
+      });
+      it('should NOT match the object with the custom filter. Though object matches the subscription params, it can NOT be sent to the subscription', async () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'fiction' });
+        // magazin4 does not have 'man' in its name
+        expect(await subscription.checkIfMatch(magazine4, 'MAGAZINE_DATA')).toEqual(false);
+      });
+      it('should NOT match the object with the custom filter. Whether object matches the subscription params, it will not be sent to the subscription', async () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'fiction' });
+        // magazin3 does not have 'man' in its name
+        expect(await subscription.checkIfMatch(magazine3, 'MAGAZINE_DATA')).toEqual(false);
+      });
+    });
+    describe('with custom filter replacing default', function() {
+      beforeEach(function() {
+        sync.publish(
+            'filteredMagazines',
+            function() {
+              return [];
+            },
+            {
+              MAGAZINE_DATA: {
+                filter: (magazine, subscriptionParams, user, tenantId) => {
+                  if (magazine.name.indexOf('man')!==-1) {
+                    return true;
+                  }
+                  return false;
+                }
+              }
+            }
+        );
+      });
+      it('should match the object with the custom filter without considering the subscription params; Object would then be sent to the subscription', async () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'business' });
+        expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(true);
+      });
     });
   });
-  // it("returns status code 200", function (done) {
-  //     done();
-  // });
-  // describe("GET /", function () {
-  //     it("returns status code 200", function (done) {
-  //         request.get(base_url, function (error, response, body) {
-  //             expect(response.statusCode).toBe(200);
-  //             done();
-  //         });
-  //     });
 
-  //     it("returns Hello World", function (done) {
-  //         request.get(base_url, function (error, response, body) {
-  //             expect(body).toBe("Hello World");
-  //             done();
-  //         });
-  //     });
-  // });
 
   function waitForNotification() {
     return deferredEmit.promise.then(function(data) {
