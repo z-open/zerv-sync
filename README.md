@@ -74,13 +74,16 @@ In this example, it is a subscription to an array.
  On the backend, When your api update, create or remove data, notify the data changes. 
  The notified object should match the params provided in the subscription in order to the data to be pushed to the client.
 
+ The notifyRefresh is used to force recomputation of the publication filter.
+
  ex: 
+     const tenantId = 'myTenantId';
 
      var zerv = require("zerv-core");
      function createMagazine(magazine) {
         magazine.revision = 0;
         return saveInDb(magazine).then(function (magazine) {
-            zerv.notifyCreation('MAGAZINE_DATA', magazine);
+            zerv.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine);
             return magazine
         });
      }
@@ -88,7 +91,7 @@ In this example, it is a subscription to an array.
      function updateMagazine(magazine) {
         magazine.revision++;
         return saveInDb(magazine).then(function (magazine) {
-            zerv.notifyChanges('MAGAZINE_DATA', magazine);
+            zerv.notifyChanges(tenantId, 'MAGAZINE_DATA', magazine);
         return magazine
         });
      }
@@ -96,7 +99,14 @@ In this example, it is a subscription to an array.
      function removeMagazine(magazine) {
         magazine.revision++;
         return removeFromDb(magazine).then(function (rep) {
-            zerv.notifyRemoval('MAGAZINE_DATA', magazine);
+            zerv.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine);
+            return rep;
+        });
+     }
+
+     function refresMagazines() {
+        return findAllMagazines().then(function (magazines) {
+            zerv.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazines);
             return rep;
         });
      }
@@ -144,12 +154,16 @@ ex:
 
 In the example above, 
 
-Each notification to MAGAZINE_DATA, will be sent to the subscription if it matches ALL subscription params.
+The fetch function (service.fetchMagazineAndArticleForUser) pulls all the expected data at initialization.
+
+Then each notification to MAGAZINE_DATA, will be sent to the subscription if it matches ALL subscription params.
 
 The scienceArticle object will only be sent to all subscriptions which makes the filter filter return true. 
 If it does, it will be formated to suit the type of object that are supposed to be received by the subscription.
 
-Notice the fetch function (service.fetchMagazineAndArticleForUser) that pulls all the expected data at initialization.
+Note: If the filter were to return null, the default filter would be used which checks the subscription params against the object notified.
+This helps with pre-filtering.
+
 
 ### Publication options
 
@@ -182,6 +196,47 @@ Provide a function for third parameters.  The params from the subscriptions migh
       function init(tenantId, user, additionalParams) {
           additionalParams.tenantId = tenantId;
       }
+
+### Notification options
+
+notifyUpdate, notifyCreate, notifyDelete and notifyRefresh can receive an object with the following options their 4th parameter.
+
+#### forceNotify: {boolean}
+This is used to force all publications to recompute their custom filter for each active subscription.
+
+In the example below, the function isUserAllowedToReview is based on external value (maybe a dynamic configuration)
+Forcing the notification will lead for the filter to reapply on the objects notified.
+This could lead to the object removed or added to the subscription based on the new value returned by isUserAllowedToReview.
+
+ex:  
+
+     sync.publish('magazines.sync',function(tenantId,userId,params){
+        return service.fetchMagazineAndArticleForUser(userId,params.type)
+     },{
+         'MAGAZINE_DATA: {},
+         'SCIENCE_ARTICLE_DATE': {
+             format: function(scienceArticle) {
+                 return formatScienceArticleToMagazine(scienceArticle)
+             },
+             filter: function(scienceArticle,subscriptionParams, user, tenantId) {
+                 return subscriptionParams.type === scienceArticle.field && isUserAllowedToReview(user)
+             }
+
+         }
+    }
+
+    function refresMagazinesToTakeInConsiderationTheUserPermission(userId) {
+        return findAllMagazines().then(function (magazines) {
+            zerv.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazines, {onlyUserId: userId});
+            return rep;
+        });
+     }
+
+The vanilla function notifyRefresh uses the option forceNotify internally. But notifyUpdate could be used instead.
+
+#### onlyUserId: {uuid}
+This option will garantee that only user with the specified id will have his active subscriptions notified with the provided data event and object.
+This will save some processing power as other users'subscriptions will not need to run any filtering computation.
 
 #### allServers: {boolean}
 This is used with zerv.onChange which listens to the notifications of the server side.
