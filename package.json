@@ -14,7 +14,8 @@
   },
   "scripts": {
     "test": "./node_modules/jasmine/bin/jasmine.js",
-    "eslint": "./node_modules/eslint/bin/eslint.js --fix **/*.js"
+    "eslint": "./node_modules/eslint/bin/eslint.js **/*.js",
+    "eslintfix": "./node_modules/eslint/bin/eslint.js --fix **/*.js"
   },
   "license": "MIT",
   "dependencies": {
@@ -29,6 +30,6 @@
     "eslint": "^6.8.0",
     "eslint-config-google": "0.14.0",
     "jasmine": "3.5.0",
-    "zerv-core": "git://github.com/z-open/zerv-core.git#1.1.5"
+    "zerv-core": "git://github.com/z-open/zerv-core.git#1.1.10"
   }
 }

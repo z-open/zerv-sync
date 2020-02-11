@@ -16,8 +16,8 @@ let nullValue, clientGeneratedsubscription2;
 
 let magazine1, magazine1b, magazine2, magazine2Deleted, magazine2updated, magazine3, magazine3b, magazine3Deleted, magazine4;
 
-describe('Sync', function() {
-  beforeEach(function() {
+describe('Sync', () => {
+  beforeEach(() => {
     nullValue = null;
     clientGeneratedsubscription2 = '#222';
 
@@ -62,29 +62,29 @@ describe('Sync', function() {
     jasmine.clock().install();
   });
 
-  beforeEach(function() {
+  beforeEach(() => {
     sync.publish(
         'magazines',
-        function() {
+        () => {
           deferredFetch.resolve([magazine1, magazine2]);
           return deferredFetch.promise;
         },
         'MAGAZINE_DATA');
   });
 
-  afterEach(function() {
+  afterEach(() => {
     // release all subsriptions
     sync.unpublish('magazines');
     jasmine.clock().uninstall();
   });
 
-  it('should subscribe and receive the subscription id', function() {
+  it('should subscribe and receive the subscription id', () => {
     subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     expect(sync.countActiveSubscriptions()).toBe(1);
     expect(subscription).toBeDefined();
   });
 
-  it('should create multiple subscriptions attached to same socket', function() {
+  it('should create multiple subscriptions attached to same socket', () => {
     subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     const subscription2 = sync.subscribe(handler.user, handler.socket, clientGeneratedsubscription2, 'magazines', null);
     expect(sync.countActiveSubscriptions()).toBe(2);
@@ -92,7 +92,7 @@ describe('Sync', function() {
     expect(handler.socket.subscriptions.length).toBe(2);
   });
 
-  it('should create multiple subscriptions attached to different socket', function() {
+  it('should create multiple subscriptions attached to different socket', () => {
     subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     const subscription2 = sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
     expect(sync.countActiveSubscriptions()).toBe(2);
@@ -101,7 +101,7 @@ describe('Sync', function() {
     expect(handler.socket.subscriptions.length).toBe(1);
   });
 
-  it('should dropActiveSubscriptions all active subscriptions from memory', function() {
+  it('should dropActiveSubscriptions all active subscriptions from memory', () => {
     sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
     sync.dropActiveSubscriptions();
@@ -110,7 +110,7 @@ describe('Sync', function() {
     expect(handler.socket.subscriptions.length).toBe(0);
   });
 
-  it('should return an error when the publication is unknown', function() {
+  it('should return an error when the publication is unknown', () => {
     const unknownPublication = 'unknownPublication';
     try {
       sync.subscribe(handler.user, handler.socket, nullValue, unknownPublication, null);
@@ -119,50 +119,50 @@ describe('Sync', function() {
     }
   });
 
-  it('should unsubscribe', function() {
+  it('should unsubscribe', () => {
     subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     expect(subscription).toBeDefined();
     sync.unsubscribe(handler.user, subscription.id);
     expect(sync.countActiveSubscriptions()).toBe(0);
   });
 
-  describe('network loss recovery', function() {
-    beforeEach(function() {
+  describe('network loss recovery', () => {
+    beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
       socket.simulateDisconnect();
     });
 
-    it('should unbound subscription to socket on disconnect but not release the subscription right away', function() {
+    it('should unbound subscription to socket on disconnect but not release the subscription right away', () => {
       // it is not released right away because the client might restablish the connection and avoid pulling data from db again.
       expect(sync.countActiveSubscriptions()).toBe(1);
     });
 
-    it('should unbound subscription to socket on disconnect and release the subscription later on', function() {
+    it('should unbound subscription to socket on disconnect and release the subscription later on', () => {
       jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 500);
       expect(sync.countActiveSubscriptions()).toBe(1);
       jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 500 + 10);
       expect(sync.countActiveSubscriptions()).toBe(0);
     });
 
-    it('should reconnect to the same subscription instance when the network re-establishes quickly', function() {
+    it('should reconnect to the same subscription instance when the network re-establishes quickly', () => {
       const newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
       expect(newSubscription).toEqual(subscription);
     });
 
-    it('should reconnect to a new subscription instance when the network does NOT re-establish quickly', function() {
+    it('should reconnect to a new subscription instance when the network does NOT re-establish quickly', () => {
       jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 1000 + 10);
       const newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
       expect(newSubscription).not.toBe(subscription);
     });
   });
 
-  describe('initialization', function() {
-    beforeEach(function() {
+  describe('initialization', () => {
+    beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     });
 
-    it('should subscribe and receive subscription data', function(done) {
-      waitForNotification().then(function(sub) {
+    it('should subscribe and receive subscription data', (done) => {
+      waitForNotification().then((sub) => {
         expect(sub.records.length).toBe(2);
         expect(sub.records[0].name).toBe(magazine1.name);
         expect(sub.records[1].name).toBe(magazine2.name);
@@ -170,30 +170,30 @@ describe('Sync', function() {
       });
     });
 
-    it('should subscribe and receive all data (not a diff)', function(done) {
-      waitForNotification().then(function(sub) {
+    it('should subscribe and receive all data (not a diff)', (done) => {
+      waitForNotification().then((sub) => {
         expect(sub.diff).toBe(false);
         done();
       });
     });
 
-    it('should emit only once the data at subscription initialization', function(done) {
+    it('should emit only once the data at subscription initialization', (done) => {
       deferredFetch.promise
-          .then(function() {
+          .then(() => {
             expect(socket.emit.calls.count()).toBe(1);
             done();
           });
     });
   });
 
-  describe('without subscription params', function() {
-    beforeEach(function() {
+  describe('without subscription params', () => {
+    beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     });
-    it('should receive an update', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive an update', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.diff).toBe(true);
           expect(sub2.records.length).toBe(1);
           done();
@@ -201,10 +201,10 @@ describe('Sync', function() {
       });
     });
 
-    it('should receive an addition', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive an addition', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.diff).toBe(true);
           expect(sub2.records.length).toBe(1);
           done();
@@ -212,10 +212,10 @@ describe('Sync', function() {
       });
     });
 
-    it('should receive a removal', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive a removal', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.diff).toBe(true);
           expect(sub2.records.length).toBe(1);
           done();
@@ -223,12 +223,12 @@ describe('Sync', function() {
       });
     });
 
-    it('should receive a removal EVEN THOUGH the revision was not increased', function(done) {
+    it('should receive a removal EVEN THOUGH the revision was not increased', (done) => {
       const currentTime = Date.now();
-      waitForNotification().then(function(sub1) {
+      waitForNotification().then((sub1) => {
         // server does keep track of what is on the client
         sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.diff).toBe(true);
           expect(sub2.records.length).toBe(1);
           const expectedRevision = 7 + Math.trunc(currentTime /100)/Math.pow(10, 11);
@@ -242,7 +242,7 @@ describe('Sync', function() {
           // clients are guaranteed to receive notification sends by server 2 at least,
           // Some might also receive the removal but it would only remove, then sync to readd due to the update
           sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
-          waitForNotification().then(function(sub2) {
+          waitForNotification().then((sub2) => {
             expect(sub2.diff).toBe(true);
             expect(sub2.records.length).toBe(1);
             done();
@@ -252,71 +252,71 @@ describe('Sync', function() {
     });
   });
 
-  describe('with subscription params', function() {
-    beforeEach(function() {
+  describe('with subscription params', () => {
+    beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', {type: 'fiction'});
     });
 
-    it('should receive an update', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive an update', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.records.length).toBe(1);
           done();
         });
       });
     });
 
-    it('should receive an addition', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive an addition', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine4);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.records.length).toBe(1);
           done();
         });
       });
     });
 
-    it('should receive a removal', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive a removal', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.records.length).toBe(1);
           done();
         });
       });
     });
 
-    it('should receive a removal for an update notification since the record does no longer matches the subscription', function(done) {
-      waitForNotification().then(function(sub1) {
+    it('should receive a removal for an update notification since the record does no longer matches the subscription', (done) => {
+      waitForNotification().then((sub1) => {
         sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updated);
-        waitForNotification().then(function(sub2) {
+        waitForNotification().then((sub2) => {
           expect(sub2.records.length).toBe(1);
           done();
         });
       });
     });
 
-    it('should NOT notified the addition unrelated to subscription', function(done) {
+    it('should NOT notified the addition unrelated to subscription', (done) => {
       deferredFetch.promise
-          .then(function() {
+          .then(() => {
             expect(socket.emit.calls.count()).toBe(1);
           })
           .then(waitForNotification)
-          .then(function(sub1) {
+          .then((sub1) => {
             sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
             expect(socket.emit.calls.count()).toBe(1);
             done();
           });
     });
 
-    it('should NOT notified the update unrelated to subscription', function(done) {
+    it('should NOT notified the update unrelated to subscription', (done) => {
       deferredFetch.promise
-          .then(function() {
+          .then(() => {
             expect(socket.emit.calls.count()).toBe(1);
           })
           .then(waitForNotification)
-          .then(function(sub1) {
+          .then((sub1) => {
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3b);
             expect(socket.emit.calls.count()).toBe(1);
             done();
@@ -324,13 +324,13 @@ describe('Sync', function() {
     });
 
 
-    it('should NOT notified the removal unrelated to subscription', function(done) {
+    it('should NOT notified the removal unrelated to subscription', (done) => {
       deferredFetch.promise
-          .then(function() {
+          .then(() => {
             expect(socket.emit.calls.count()).toBe(1);
           })
           .then(waitForNotification)
-          .then(function(sub1) {
+          .then((sub1) => {
             sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
             expect(socket.emit.calls.count()).toBe(1);
             done();
@@ -338,22 +338,22 @@ describe('Sync', function() {
     });
   });
 
-  describe('checkIfMatch', function() {
-    it('should exclude records with unmatched params (subs.setParams)', async function() {
+  describe('checkIfMatch', () => {
+    it('should exclude records with unmatched params (subs.setParams)', async () => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { type: 'fiction' });
       expect(await subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(false);
     });
 
-    it('should always match records with params cacheLevel', async function() {
+    it('should always match records with params cacheLevel', async () => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { cacheLevel: 0 });
       expect(await subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(true);
     });
 
-    describe('with pre custom filter', function() {
-      beforeEach(function() {
+    describe('with pre custom filter', () => {
+      beforeEach(() => {
         sync.publish(
             'filteredMagazines',
-            function() {
+            () => {
               return [];
             },
             {
@@ -390,11 +390,11 @@ describe('Sync', function() {
         expect(await subscription.checkIfMatch(magazine3, 'MAGAZINE_DATA')).toEqual(false);
       });
     });
-    describe('with custom filter replacing default', function() {
-      beforeEach(function() {
+    describe('with custom filter replacing default', () => {
+      beforeEach(() => {
         sync.publish(
             'filteredMagazines',
-            function() {
+            () => {
               return [];
             },
             {
@@ -418,7 +418,7 @@ describe('Sync', function() {
 
 
   function waitForNotification() {
-    return deferredEmit.promise.then(function(data) {
+    return deferredEmit.promise.then((data) => {
       deferredEmit = defer();
       data.acknowledge();
       return data.sub;
@@ -428,23 +428,23 @@ describe('Sync', function() {
   function MockSocket() {
     let disconnect;
 
-    this.on = function(event, callback) {
+    this.on = (event, callback) => {
       console.log('Socket.on:' + event);
       disconnect = callback;
     };
 
-    this.emit = function(event, params, callback) {
+    this.emit = (event, params, callback) => {
       console.log('Socket.emit:' + event + '->' + JSON.stringify(params));
       deferredEmit.resolve({sub: params, acknowledge: callback});
     };
-    this.simulateDisconnect = function() {
+    this.simulateDisconnect = () => {
       disconnect && disconnect();
     };
   }
 
   function defer() {
     const deferred = {};
-    deferred.promise = new Promise(function(resolve, reject) {
+    deferred.promise = new Promise((resolve) => {
       deferred.resolve = resolve;
     });
     return deferred;
