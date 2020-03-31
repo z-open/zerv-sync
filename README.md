@@ -18,10 +18,11 @@ It requires the client to use the zerv-ng-sync bower package to establish the sy
 
 ### install
 ```
-npm install git://github.com/z-open/zerv-sync#1.1.4
+npm install git://github.com/z-open/zerv-sync#1.X.X
 ```
 Use the appropriate release number.
-Tested with node: v10.15.1
+
+Tested with node: v12.16.1
 
 ### Principle
 
@@ -204,9 +205,11 @@ notifyUpdate, notifyCreate, notifyDelete and notifyRefresh can receive an object
 #### forceNotify: {boolean}
 This is used to force all publications to recompute their custom filter for each active subscription.
 
-In the example below, the function isUserAllowedToReview is based on external value (maybe a dynamic configuration)
+This is only taken in consideration by notifyUpdate.
+
+In the example below, the function isUserAllowedToReview is based on external value (maybe a dynamic configuration).
 Forcing the notification will lead for the filter to reapply on the objects notified.
-This could lead to the object removed or added to the subscription based on the new value returned by isUserAllowedToReview.
+This could lead to objects being removed or added to the subscription based on the new value returned by isUserAllowedToReview. As per optimization, the subscription would only receive commands to add or remove some particular objects thru the network.
 
 ex:  
 
@@ -227,12 +230,23 @@ ex:
 
     function refresMagazinesToTakeInConsiderationTheUserPermission(userId) {
         return findAllMagazines().then(function (magazines) {
-            zerv.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazines, {onlyUserId: userId});
+            zerv.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazines, {onlyUserId: userId, forceNotify:true});
             return rep;
         });
      }
 
-The vanilla function notifyRefresh uses the option forceNotify internally. But notifyUpdate could be used instead.
+The vanilla function notifyRefresh uses the option forceNotify internally.
+
+ex:
+
+      function refresMagazinesToTakeInConsiderationTheUserPermission(userId) {
+        return findAllMagazines().then(function (magazines) {
+            zerv.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazines, {onlyUserId: userId});
+            return rep;
+        });
+    
+
+
 
 #### onlyUserId: {uuid}
 This option will garantee that only user with the specified id will have his active subscriptions notified with the provided data event and object.
@@ -245,6 +259,9 @@ By default, notifications are only emitted to servers which are currently handli
 This prevents from having notifications sent to servers which are not connected to any user of the notified tenant and save network, memory and cpu resources.
 
 However, it might be sometimes useful to notify all servers then the zerv.onChange of all servers will receive the data even though they might not be handling the tenant.
+
+Internally, notifications using this parameter are using a different redis channel which all zerv servers subscribe to.
+
 
 ### Zerv farm
 
@@ -271,7 +288,14 @@ by default, the backend does not show the log
 
 ### Collaborate
 
-to run the test: npm test
+to run the test: 
+
+    npm test
+
+
+To check linting:
+
+    npm run eslint
 
 Note: 
 Increase constant CURRENT_SYNC_VERSION to prevent incompatible bower client libraries to operate.

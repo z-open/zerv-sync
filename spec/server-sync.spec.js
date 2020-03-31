@@ -17,6 +17,7 @@ let nullValue, clientGeneratedsubscription2;
 let magazine1, magazine1b, magazine2, magazine2Deleted, magazine2updated, magazine3, magazine3b, magazine3Deleted, magazine4;
 
 describe('Sync', () => {
+  
   beforeEach(() => {
     nullValue = null;
     clientGeneratedsubscription2 = '#222';
@@ -127,6 +128,7 @@ describe('Sync', () => {
   });
 
   describe('network loss recovery', () => {
+
     beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
       socket.simulateDisconnect();
@@ -154,9 +156,11 @@ describe('Sync', () => {
       const newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
       expect(newSubscription).not.toBe(subscription);
     });
+
   });
 
   describe('initialization', () => {
+
     beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     });
@@ -184,12 +188,15 @@ describe('Sync', () => {
             done();
           });
     });
+
   });
 
   describe('without subscription params', () => {
+
     beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
     });
+
     it('should receive an update', (done) => {
       waitForNotification().then((sub1) => {
         sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
@@ -250,9 +257,11 @@ describe('Sync', () => {
         });
       });
     });
+
   });
 
   describe('with subscription params', () => {
+
     beforeEach(() => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', {type: 'fiction'});
     });
@@ -323,7 +332,6 @@ describe('Sync', () => {
           });
     });
 
-
     it('should NOT notified the removal unrelated to subscription', (done) => {
       deferredFetch.promise
           .then(() => {
@@ -336,9 +344,11 @@ describe('Sync', () => {
             done();
           });
     });
+
   });
 
   describe('checkIfMatch', () => {
+
     it('should exclude records with unmatched params (subs.setParams)', async () => {
       subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { type: 'fiction' });
       expect(await subscription.checkIfMatch({id: 'muId'}, 'MAGAZINE_DATA')).toEqual(false);
@@ -350,6 +360,7 @@ describe('Sync', () => {
     });
 
     describe('with pre custom filter', () => {
+
       beforeEach(() => {
         sync.publish(
             'filteredMagazines',
@@ -359,7 +370,7 @@ describe('Sync', () => {
             {
               MAGAZINE_DATA: {
                 filter: (magazine, subscriptionParams, user, tenantId) => {
-                  if (magazine.name.indexOf('man')!==-1) {
+                  if (magazine.name.indexOf('man') !== -1) {
                     return null;
                   }
                   return false;
@@ -374,23 +385,29 @@ describe('Sync', () => {
         // magazin1 does have 'man' in its name and is a fiction book
         expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(true);
       });
+
       it('should match the object with the custom filter; however object does not match the subscription params so that it can NOT be sent to the subscription', async () => {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'business' });
         // magazin1 does have 'man' in its name but is not a business book
         expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(false);
       });
+
       it('should NOT match the object with the custom filter. Though object matches the subscription params, it can NOT be sent to the subscription', async () => {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'fiction' });
         // magazin4 does not have 'man' in its name
         expect(await subscription.checkIfMatch(magazine4, 'MAGAZINE_DATA')).toEqual(false);
       });
+
       it('should NOT match the object with the custom filter. Whether object matches the subscription params, it will not be sent to the subscription', async () => {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'fiction' });
         // magazin3 does not have 'man' in its name
         expect(await subscription.checkIfMatch(magazine3, 'MAGAZINE_DATA')).toEqual(false);
       });
+
     });
+
     describe('with custom filter replacing default', () => {
+
       beforeEach(() => {
         sync.publish(
             'filteredMagazines',
@@ -409,11 +426,14 @@ describe('Sync', () => {
             }
         );
       });
+
       it('should match the object with the custom filter without considering the subscription params; Object would then be sent to the subscription', async () => {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'filteredMagazines', { type: 'business' });
         expect(await subscription.checkIfMatch(magazine1, 'MAGAZINE_DATA')).toEqual(true);
       });
+
     });
+
   });
 
 
