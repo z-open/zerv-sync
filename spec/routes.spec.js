@@ -54,7 +54,7 @@ describe('routes', function() {
             {version: currentVersion, id: 'sub#1', publication: 'magazine', params: {type: 'fiction'}}
         );
         expect(sync.subscribe).toHaveBeenCalled();
-        // need to check params
+    // need to check params
     });
 
     it('should registerunsubscribe', function() {
