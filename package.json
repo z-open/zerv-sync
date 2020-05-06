@@ -1,6 +1,6 @@
 {
   "name": "zerv-sync",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "Zerv module providing data synchronization support",
   "main": "lib/zerv-sync.js",
   "keywords": [
@@ -23,7 +23,7 @@
     "lodash": "4.17.15",
     "promise": "8.0.3",
     "uuid": "3.3.3",
-    "zjsonbin": "z-open/zjsonbin#2.0.0",
+    "zjsonbin": "z-open/zjsonbin#2.0.1",
     "zlog4js": "1.0.5"
   },
   "devDependencies": {
