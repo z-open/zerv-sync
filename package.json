@@ -30,6 +30,6 @@
     "eslint": "6.8.0",
     "eslint-config-google": "0.14.0",
     "jasmine": "3.5.0",
-    "zerv-core": "git://github.com/z-open/zerv-core.git#1.1.10"
+    "zerv-core": "git://github.com/z-open/zerv-core.git#1.2.2"
   }
 }
