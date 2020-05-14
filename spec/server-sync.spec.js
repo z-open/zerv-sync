@@ -1,4 +1,4 @@
-const zlog = require('zlog4js');
+const zlog = require('zimit-zlog');
 zlog.setRootLogger('none');
 
 const zervCore = require('zerv-core');
