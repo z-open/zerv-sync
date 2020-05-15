@@ -1,5 +1,5 @@
 const _ = require('lodash');
-const zlog = require('zlog4js');
+const zlog = require('zimit-zlog');
 const zjsonbin = require('zjsonbin');
 const updateService = require('../lib/update.service');
 zlog.setRootLogger('none');
