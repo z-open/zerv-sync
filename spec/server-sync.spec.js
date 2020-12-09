@@ -11,7 +11,6 @@ let handler, handler2;
 let tenantId;
 let userId;
 let subscription;
-let deferredFetch;
 let nullValue, clientGeneratedsubscription2;
 
 let magazine1, magazine1b, magazine2, magazine2Deleted, magazine2updated, magazine3, magazine3b, magazine3Deleted, magazine4;
@@ -40,8 +39,6 @@ describe('Sync', () => {
         /* eslint-disable no-use-before-define */
         socket = new MockSocket();
 
-        deferredFetch = defer();
-
         handler = {
             user: {
                 tenantId,
@@ -68,10 +65,7 @@ describe('Sync', () => {
     beforeEach(() => {
         sync.publish(
             'magazines',
-            () => {
-                deferredFetch.resolve([magazine1, magazine2]);
-                return deferredFetch.promise;
-            },
+            () => Promise.resolve([magazine1, magazine2]),
             'MAGAZINE_DATA');
     });
 
@@ -167,28 +161,21 @@ describe('Sync', () => {
             subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         });
 
-        it('should subscribe and receive subscription data', (done) => {
-            waitForReceivingNotification().then((sub) => {
-                expect(sub.records.length).toBe(2);
-                expect(sub.records[0].name).toBe(magazine1.name);
-                expect(sub.records[1].name).toBe(magazine2.name);
-                done();
-            });
+        it('should subscribe and receive subscription data', async () => {
+            const sub = await waitForReceivingSubscribedData();
+            expect(sub.records.length).toBe(2);
+            expect(sub.records[0].name).toBe(magazine1.name);
+            expect(sub.records[1].name).toBe(magazine2.name);
         });
 
-        it('should subscribe and receive all data (not a diff)', (done) => {
-            waitForReceivingNotification().then((sub) => {
-                expect(sub.diff).toBe(false);
-                done();
-            });
+        it('should subscribe and receive all data (not a diff)', async () => {
+            const sub = await waitForReceivingSubscribedData();
+            expect(sub.diff).toBe(false);
         });
 
-        it('should emit only once the data at subscription initialization', (done) => {
-            deferredFetch.promise
-                .then(() => {
-                    expect(socket.emit.calls.count()).toBe(1);
-                    done();
-                });
+        it('should emit only once the data at subscription initialization', async () => {
+            await waitForReceivingSubscribedData();
+            expect(socket.emit.calls.count()).toBe(1);
         });
 
     });
@@ -199,85 +186,76 @@ describe('Sync', () => {
             subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         });
 
-        it('should receive an update', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                // the client has the data
-                expect(subscription.getSyncedRecordVersion(magazine1.id)).toBe(0);
+        it('should receive an update', async () => {
+            await waitForReceivingSubscribedData();
+            // the client has the data
+            expect(subscription.getSyncedRecordVersion(magazine1.id)).toBe(0);
 
-                sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.diff).toBe(true);
-                    expect(sub2.records.length).toBe(1);
-                    expect(subscription.getSyncedRecordVersion(magazine1.id)).toBe(1);
-                    done();
-                });
-            });
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
+      
+            const sub2 = await waitForReceivingSubscribedData();
+
+            expect(sub2.diff).toBe(true);
+            expect(sub2.records.length).toBe(1);
+            expect(subscription.getSyncedRecordVersion(magazine1.id)).toBe(1);
         });
 
-        it('should receive an addition', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                // the client does not have the data
-                expect(subscription.getSyncedRecordVersion(magazine3.id)).toBeUndefined();
+        it('should receive an addition',  async () => {
+            await waitForReceivingSubscribedData();
+            // the client does not have the data
+            expect(subscription.getSyncedRecordVersion(magazine3.id)).toBeUndefined();
+            expect(socket.emit.calls.count()).toBe(1);
 
-                sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.diff).toBe(true);
-                    expect(sub2.records.length).toBe(1);
-                    expect(subscription.getSyncedRecordVersion(magazine3.id)).toBe(9);
-                    done();
-                });
-                expect(socket.emit.calls.count()).toBe(1);
-            });
+            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.diff).toBe(true);
+            expect(sub2.records.length).toBe(1);
+            expect(subscription.getSyncedRecordVersion(magazine3.id)).toBe(9);
         });
 
-        it('should receive a removal', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                // the client has the data
-                expect(subscription.getSyncedRecordVersion(magazine2Deleted.id)).toBe(7);
+        it('should receive a removal', async () => {
+            await waitForReceivingSubscribedData();
+            // the client has the data
+            expect(subscription.getSyncedRecordVersion(magazine2Deleted.id)).toBe(7);
 
-                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.diff).toBe(true);
-                    expect(sub2.records.length).toBe(1);
-                    expect(subscription.getSyncedRecordVersion(magazine2Deleted.id)).toBeUndefined();
-                    expect(sub2.records[0].revision>8).toBeTrue();
-                    expect(sub2.records[0].revision<9).toBeTrue();
-                    done();
-                });
-            });
+            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.diff).toBe(true);
+            expect(sub2.records.length).toBe(1);
+            expect(subscription.getSyncedRecordVersion(magazine2Deleted.id)).toBeUndefined();
+            expect(sub2.records[0].revision>8).toBeTrue();
+            expect(sub2.records[0].revision<9).toBeTrue();
         });
 
-        it('should receive a removal EVEN THOUGH the revision was not increased', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                // the client has the data
-                expect(subscription.getSyncedRecordVersion(magazine2.id)).toBe(7);
+        it('should receive a removal EVEN THOUGH the revision was not increased', async () => {
+            await waitForReceivingSubscribedData();
+            // the client has the data
+            expect(subscription.getSyncedRecordVersion(magazine2.id)).toBe(7);
                 
-                // server does keep track of what is on the client
-                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.diff).toBe(true);
-                    expect(sub2.records.length).toBe(1);
-                    expect(sub2.records[0].id).toBe(magazine2.id);
-                    expect(sub2.records[0].revision>7).toBeTrue();
-                    expect(sub2.records[0].revision<8).toBeTrue();
-                    // if there is a consecutive update (or even concurrent), the deleted will not interfer
-                    //
-                    // this cover the following issue on concurrent removal and update
-                    // server 1 notifies a removal of record rev 1, which is automatically increased to 1.01
-                    // server 2 notifies an update of the same record revision at the same time which is increased to 2
-                    // Expectation:
-                    // clients are guaranteed to receive notification sends by server 2 at least,
-                    // Some might also receive the removal but it would only remove, then sync to readd due to the update
-                    sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updated);
-                    waitForReceivingNotification().then((sub2) => {
-                        expect(sub2.diff).toBe(true);
-                        expect(sub2.records.length).toBe(1);
-                        expect(sub2.records[0].id).toBe(magazine2.id);
-                        expect(sub2.records[0].revision).toBe(8);
-                        done();
-                    });
-                });
-            });
+            // server does keep track of what is on the client
+            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2);
+            const sub2 = await waitForReceivingSubscribedData();
+
+            expect(sub2.diff).toBe(true);
+            expect(sub2.records.length).toBe(1);
+            expect(sub2.records[0].id).toBe(magazine2.id);
+            expect(sub2.records[0].revision>7).toBeTrue();
+            expect(sub2.records[0].revision<8).toBeTrue();
+            // if there is a consecutive update (or even concurrent), the deleted will not interfer
+            //
+            // this cover the following issue on concurrent removal and update
+            // server 1 notifies a removal of record rev 1, which is automatically increased to 1.01
+            // server 2 notifies an update of the same record revision at the same time which is increased to 2
+            // Expectation:
+            // clients are guaranteed to receive notification sends by server 2 at least,
+            // Some might also receive the removal but it would only remove, then sync to readd due to the update
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updated);
+            const sub3 = await waitForReceivingSubscribedData();
+
+            expect(sub3.diff).toBe(true);
+            expect(sub3.records.length).toBe(1);
+            expect(sub3.records[0].id).toBe(magazine2.id);
+            expect(sub3.records[0].revision).toBe(8);
         });
 
     });
@@ -296,74 +274,53 @@ describe('Sync', () => {
             });
         });
 
-        it('should receive an update', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.records.length).toBe(1);
-                    done();
-                });
-            });
+        it('should receive the data after initialization of the subscription', async () => {
+            await waitForReceivingSubscribedData();
+            expect(socket.emit.calls.count()).toBe(1);
         });
 
-        it('should receive an addition', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine4);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.records.length).toBe(1);
-                    done();
-                });
-            });
+        it('should receive an update', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1b);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.records.length).toBe(1);
         });
 
-        it('should receive a removal', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.records.length).toBe(1);
-                    done();
-                });
-            });
+        it('should receive an addition', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine4);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.records.length).toBe(1);
         });
 
-        it('should receive a removal for an update notification since the record does no longer matches the subscription', (done) => {
-            waitForReceivingNotification().then((sub1) => {
-                sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updated);
-                waitForReceivingNotification().then((sub2) => {
-                    expect(sub2.records.length).toBe(1);
-                    done();
-                });
-            });
+        it('should receive a removal', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2Deleted);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.records.length).toBe(1);
         });
 
-        it('should NOT notified the addition unrelated to subscription', (done) => {
-            deferredFetch.promise
-                .then(() => {
-                    expect(socket.emit.calls.count()).toBe(1);
-                })
-                .then(waitForReceivingNotification)
-                .then((sub1) => {
-                    sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
-                    expect(socket.emit.calls.count()).toBe(1);
-                    done();
-                });
+        it('should receive a removal for an update notification since the record does no longer matches the subscription', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updated);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(sub2.records.length).toBe(1);
         });
 
-        it('should NOT notified the update unrelated to subscription', (done) => {
-            deferredFetch.promise
-                .then(() => {
-                    expect(socket.emit.calls.count()).toBe(1);
-                })
-                .then(waitForReceivingNotification)
-                .then((sub1) => {
-                    sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3b);
-                    expect(socket.emit.calls.count()).toBe(1);
-                    done();
-                });
+        it('should NOT notified the addition unrelated to subscription', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3);
+            expect(socket.emit.calls.count()).toBe(1);
         });
 
-        it('should NOT notify the old update', async () => {
-            await waitForReceivingNotification();
+        it('should NOT notified the update unrelated to subscription', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3b);
+            expect(socket.emit.calls.count()).toBe(1);
+        });
+
+        it('should NOT notify a revision of an object that was already emitted', async () => {
+            await waitForReceivingSubscribedData();
             // Let's notify what was already sent during subscription initialization
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1);
             const hasRecordsToEmit = await deferredEmitChanges.promise;
@@ -371,17 +328,10 @@ describe('Sync', () => {
             expect(socket.emit.calls.count()).toBe(1);
         });
 
-        it('should NOT notified the removal unrelated to subscription', (done) => {
-            deferredFetch.promise
-                .then(() => {
-                    expect(socket.emit.calls.count()).toBe(1);
-                })
-                .then(waitForReceivingNotification)
-                .then(async (sub1) => {
-                    await sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
-                    expect(socket.emit.calls.count()).toBe(1);
-                    done();
-                });
+        it('should NOT notified the removal unrelated to subscription', async () => {
+            await waitForReceivingSubscribedData();
+            await sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine3Deleted);
+            expect(socket.emit.calls.count()).toBe(1);
         });
 
     });
@@ -476,7 +426,7 @@ describe('Sync', () => {
     });
 
 
-    function waitForReceivingNotification() {
+    function waitForReceivingSubscribedData() {
         return socket.deferredEmit.promise.then((data) => {
             socket.deferredEmit = defer();
             data.acknowledge();
