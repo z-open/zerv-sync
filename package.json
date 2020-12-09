@@ -1,6 +1,6 @@
 {
   "name": "zerv-sync",
-  "version": "1.1.13",
+  "version": "1.1.14",
   "description": "Zerv module providing data synchronization support",
   "main": "lib/zerv-sync.js",
   "keywords": [
