@@ -5,7 +5,6 @@ const zervCore = require('zerv-core');
 zervCore.transport.disabled = true;// no serialization or compression.
 
 const sync = require('../lib/zerv-sync');
-const Promise = require('promise');
 let socket;
 let handler, handler2;
 let tenantId;
@@ -312,6 +311,7 @@ describe('Sync', () => {
         let deferredEmitChanges;
 
         beforeEach(() => {
+            // the param is the type fiction here.
             subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', { type: 'fiction' });
             const emitChanges = subscription.emitChanges;
             deferredEmitChanges = defer();
@@ -413,6 +413,86 @@ describe('Sync', () => {
         });
 
     });
+
+    describe('with subscription params and filter', () => {
+        let restrictedType;
+        let deferredEmitChanges;
+        let filter;
+
+        beforeEach(() => {
+            filter = jasmine.createSpy('publicationFilter').and.callFake(
+                async (magazine, subscriptionParams, user, tenantId) => {
+                    // notice the filter depends on external variable restrictedType
+                    if(magazine.type === restrictedType) {
+                        return null;
+                    }
+                    return false;
+                }
+            );
+
+            const filterOptions = {
+                'MAGAZINE_DATA': { filter }
+            };
+            sync.publish(
+                'restrictedMagazines',
+                () => Promise.resolve([magazine1V2, magazine2V7, magazine3V9]),
+                filterOptions
+            );
+
+            subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'restrictedMagazines', { type: 'fiction' });
+
+            const emitChanges = subscription.emitChanges;
+
+            deferredEmitChanges = defer();
+            spyOn(subscription, 'emitChanges').and.callFake((...params) => {
+                const result = emitChanges(...params);
+                deferredEmitChanges.resolve(result);
+                return result;
+            });
+        });
+
+        it('should receive an update because the magazine matches the restricted filter', async () => {
+            restrictedType = 'fiction';
+            await waitForReceivingSubscribedData();
+            expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(2);
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(filter).toHaveBeenCalledWith(
+                magazine1V3,
+                { type: 'fiction' },
+                handler.user,
+                tenantId
+            );
+            expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(3);
+            expect(sub2.records.length).toBe(1);
+        });
+
+        it('should receive a removal for the update because the magazine does not match the restricted filter any more', async () => {
+            restrictedType = 'cooking';
+            await waitForReceivingSubscribedData();
+            expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(2);
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(subscription.getSyncedRecordVersion(magazine1V3.id)).toBeUndefined();
+            expect(sub2.records.length).toBe(1);
+        });
+
+        it('should receive a removal for the refresh (no revision increase) because the magazine does not match the restricted filter any more', async () => {
+            restrictedType = 'cooking';
+            await waitForReceivingSubscribedData();
+            expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(2);
+            // refresh let the publications know to recompute their filter
+            sync.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazine1V2);
+            const sub2 = await waitForReceivingSubscribedData();
+            expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBeUndefined();
+            expect(sub2.records.length).toBe(1);
+        });
+
+        afterEach(() => {
+            sync.unpublish('restrictedMagazines');
+        });
+    });
+        
 
     describe('checkIfMatch', () => {
 
