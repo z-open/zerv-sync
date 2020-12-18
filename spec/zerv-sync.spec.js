@@ -2,6 +2,8 @@ const zlog = require('zimit-zlog');
 zlog.setRootLogger('none');
 
 const zervCore = require('zerv-core');
+const utils = require('../lib/utils');
+
 zervCore.transport.disabled = true;// no serialization or compression.
 
 const sync = require('../lib/zerv-sync');
@@ -59,6 +61,7 @@ describe('Sync', () => {
         };
 
         spyOn(socket, 'emit').and.callThrough();
+        spyOn(utils, 'breath').and.callThrough();
 
         jasmine.clock().install();
     });
@@ -71,6 +74,8 @@ describe('Sync', () => {
     });
 
     afterEach(() => {
+        utils._clearBreath();
+
         // release all subsriptions
         sync.unpublish('magazines');
         jasmine.clock().uninstall();
@@ -195,7 +200,8 @@ describe('Sync', () => {
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
       
             const sub2 = await waitForReceivingSubscribedData();
-
+            // 
+            expect(utils.breath).toHaveBeenCalledTimes(1);
             expect(sub2.diff).toBe(true);
             expect(sub2.records.length).toBe(1);
             expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(3);
@@ -259,7 +265,6 @@ describe('Sync', () => {
             expect(sub3.records[0].revision).toBe(8);
         });
 
-
         it('should receive an update after a removal EVEN THOUGH the revision was not increased', async () => {
             await waitForReceivingSubscribedData();
             // the client has the data
@@ -303,6 +308,17 @@ describe('Sync', () => {
             expect(subscription.getSyncedRecordVersion(magazine2DeletedV8.id)).toBeUndefined();
             expect(sub3.records[0].revision>8).toBeTrue();
             expect(sub3.records[0].revision<9).toBeTrue();
+        });
+
+        it('should attempt breathing (freeing eventloop) for each notification', async () => {
+            await waitForReceivingSubscribedData();
+            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2V7);
+            await waitForReceivingSubscribedData();
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updatedV8);
+            await waitForReceivingSubscribedData();
+            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3V9);
+            await waitForReceivingSubscribedData();
+            expect(utils.breath).toHaveBeenCalledTimes(3);
         });
 
     });
