@@ -197,7 +197,7 @@ describe('Sync', () => {
             // the client has the data
             expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(2);
 
-            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            const resultPromise = sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
       
             const sub2 = await waitForReceivingSubscribedData();
             // 
@@ -205,6 +205,7 @@ describe('Sync', () => {
             expect(sub2.diff).toBe(true);
             expect(sub2.records.length).toBe(1);
             expect(subscription.getSyncedRecordVersion(magazine1V2.id)).toBe(3);
+            expect(await resultPromise).toEqual(1);
         });
 
         it('should receive an addition',  async () => {
@@ -213,11 +214,13 @@ describe('Sync', () => {
             expect(subscription.getSyncedRecordVersion(magazine3V9.id)).toBeUndefined();
             expect(socket.emit.calls.count()).toBe(1);
 
-            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3V9);
+            const resultPromise = sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3V9);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.diff).toBe(true);
             expect(sub2.records.length).toBe(1);
             expect(subscription.getSyncedRecordVersion(magazine3V9.id)).toBe(9);
+            expect(await resultPromise).toEqual(1);
+
         });
 
         it('should receive a removal', async () => {
@@ -225,13 +228,14 @@ describe('Sync', () => {
             // the client has the data
             expect(subscription.getSyncedRecordVersion(magazine2DeletedV8.id)).toBe(7);
 
-            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2DeletedV8);
+            const resultPromise = sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2DeletedV8);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.diff).toBe(true);
             expect(sub2.records.length).toBe(1);
             expect(subscription.getSyncedRecordVersion(magazine2DeletedV8.id)).toBeUndefined();
             expect(sub2.records[0].revision>8).toBeTrue();
             expect(sub2.records[0].revision<9).toBeTrue();
+            expect(await resultPromise).toEqual(1);
         });
 
         it('should receive an update after a removal', async () => {
@@ -348,6 +352,7 @@ describe('Sync', () => {
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.records.length).toBe(1);
+            expect(socket.emit.calls.count()).toBe(2);
         });
 
         it('should receive an addition', async () => {
@@ -355,6 +360,7 @@ describe('Sync', () => {
             sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine4);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.records.length).toBe(1);
+            expect(socket.emit.calls.count()).toBe(2);
         });
 
         it('should receive a removal', async () => {
@@ -362,6 +368,7 @@ describe('Sync', () => {
             sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine2DeletedV8);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.records.length).toBe(1);
+            expect(socket.emit.calls.count()).toBe(2);
         });
 
         it('should receive a removal for an update notification since the record does no longer matches the subscription', async () => {
@@ -369,17 +376,20 @@ describe('Sync', () => {
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine2updatedV8);
             const sub2 = await waitForReceivingSubscribedData();
             expect(sub2.records.length).toBe(1);
+            expect(socket.emit.calls.count()).toBe(2);
         });
 
         it('should NOT notified the addition of an object unrelated to subscription', async () => {
             await waitForReceivingSubscribedData();
-            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3V9);
+            const result = await sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine3V9);
+            expect(result).toEqual(0);
             expect(socket.emit.calls.count()).toBe(1);
         });
 
         it('should NOT notified the update of an object unrelated to subscription', async () => {
             await waitForReceivingSubscribedData();
-            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3V10);
+            const result = await sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine3V10);
+            expect(result).toEqual(0);
             expect(socket.emit.calls.count()).toBe(1);
         });
 
@@ -391,8 +401,9 @@ describe('Sync', () => {
 
         it('should NOT notify a revision refresh of an object unrelated to subscription', async () => {
             await waitForReceivingSubscribedData();
-            sync.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazine3V10);
+            const hasRecordsToEmit = await sync.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazine3V10);
             expect(socket.emit.calls.count()).toBe(1);
+            expect(hasRecordsToEmit).toBe(0);
         });
 
         it('should NOT notify a revision update of an object that was already emitted', async () => {
@@ -400,7 +411,7 @@ describe('Sync', () => {
             // Let's notify what was already sent during subscription initialization
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V2);
             const hasRecordsToEmit = await deferredEmitChanges.promise;
-            expect(hasRecordsToEmit).toBeFalse();
+            expect(hasRecordsToEmit).toBe(0);
             expect(socket.emit.calls.count()).toBe(1);
         });
 
@@ -415,7 +426,7 @@ describe('Sync', () => {
             // Let's notify what was already sent during subscription initialization
             sync.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazine1V2);
             const hasRecordsToEmit = await deferredEmitChanges.promise;
-            expect(hasRecordsToEmit).toBeFalse();
+            expect(hasRecordsToEmit).toBe(0);
             expect(socket.emit.calls.count()).toBe(1);
         });
 
@@ -424,7 +435,7 @@ describe('Sync', () => {
             // Let's notify what was already sent during subscription initialization
             sync.notifyRefresh(tenantId, 'MAGAZINE_DATA', magazine1V1);
             const hasRecordsToEmit = await deferredEmitChanges.promise;
-            expect(hasRecordsToEmit).toBeFalse();
+            expect(hasRecordsToEmit).toBe(0);
             expect(socket.emit.calls.count()).toBe(1);
         });
 
