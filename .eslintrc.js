@@ -18,7 +18,7 @@ module.exports = {
             // those are all shifted to template literals, this can be enabled (127 issues)
             ArrayExpression: 'off',
             // Commented out code does not need to follow indenting standards
-            ignoreComments: true,
+            ignoreComments: false,
         }],
         'arrow-parens': 0,
 
