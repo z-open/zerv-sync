@@ -13,7 +13,7 @@ let tenantId;
 let userId;
 let subscription;
 let nullValue, clientGeneratedsubscription2;
-
+let onSubscriptionConnect, onSubscriptionDisconnect;
 let magazine1V1, magazine1V2, magazine1V3, magazine2V7, magazine2DeletedV8, magazine2updatedV8, magazine3V9, magazine3V10, magazine3DeletedV11, magazine4;
 
 describe('Sync', () => {
@@ -63,6 +63,9 @@ describe('Sync', () => {
         spyOn(socket, 'emit').and.callThrough();
         spyOn(utils, 'breath').and.callThrough();
 
+        onSubscriptionConnect = jasmine.createSpy('onSubscriptionConnect');
+        onSubscriptionDisconnect = jasmine.createSpy('onSubscriptionDisconnect');
+
         jasmine.clock().install();
     });
 
@@ -70,7 +73,9 @@ describe('Sync', () => {
         sync.publish(
             'magazines',
             () => Promise.resolve([magazine1V2, magazine2V7]),
-            'MAGAZINE_DATA');
+            'MAGAZINE_DATA',
+            {onSubscriptionConnect, onSubscriptionDisconnect}
+        );
     });
 
     afterEach(() => {
@@ -85,6 +90,13 @@ describe('Sync', () => {
         subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
         expect(sync.countActiveSubscriptions()).toBe(1);
         expect(subscription).toBeDefined();
+    });
+
+    it('should execute the connect callback on subscribing', () => {
+        subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines');
+        expect(sync.countActiveSubscriptions()).toBe(1);
+        expect(subscription).toBeDefined();
+        expect(onSubscriptionConnect).toHaveBeenCalledWith(subscription);
     });
 
     it('should create multiple subscriptions attached to same socket', () => {
@@ -102,15 +114,23 @@ describe('Sync', () => {
         expect(subscription).not.toBe(subscription2);
         expect(handler.socket.subscriptions.length).toBe(1);
         expect(handler.socket.subscriptions.length).toBe(1);
+
+        expect(onSubscriptionConnect).toHaveBeenCalledTimes(2);
+        expect(onSubscriptionConnect.calls.argsFor(0)).toEqual([subscription]);
+        expect(onSubscriptionConnect.calls.argsFor(1)).toEqual([subscription2]);
     });
 
     it('should dropActiveSubscriptions all active subscriptions from memory', () => {
-        sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
-        sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
+        const sub1 = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
+        const sub2 = sync.subscribe(handler2.user, handler2.socket, clientGeneratedsubscription2, 'magazines', null);
         sync.dropActiveSubscriptions();
         expect(sync.countActiveSubscriptions()).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
         expect(handler.socket.subscriptions.length).toBe(0);
+
+        expect(onSubscriptionDisconnect).toHaveBeenCalledTimes(2);
+        expect(onSubscriptionDisconnect.calls.argsFor(0)).toEqual([sub1]);
+        expect(onSubscriptionDisconnect.calls.argsFor(1)).toEqual([sub2]);
     });
 
     it('should return an error when the publication is unknown', () => {
@@ -127,6 +147,9 @@ describe('Sync', () => {
         expect(subscription).toBeDefined();
         sync.unsubscribe(handler.user, subscription.id);
         expect(sync.countActiveSubscriptions()).toBe(0);
+
+        expect(onSubscriptionDisconnect).toHaveBeenCalledTimes(1);
+        expect(onSubscriptionDisconnect).toHaveBeenCalledWith(subscription);
     });
 
     describe('network loss recovery', () => {
@@ -139,6 +162,8 @@ describe('Sync', () => {
         it('should unbound subscription to socket on disconnect but not release the subscription right away', () => {
             // it is not released right away because the client might restablish the connection and avoid pulling data from db again.
             expect(sync.countActiveSubscriptions()).toBe(1);
+
+            expect(onSubscriptionDisconnect).toHaveBeenCalledWith(subscription);
         });
 
         it('should unbound subscription to socket on disconnect and release the subscription later on', () => {
@@ -146,17 +171,28 @@ describe('Sync', () => {
             expect(sync.countActiveSubscriptions()).toBe(1);
             jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 500 + 10);
             expect(sync.countActiveSubscriptions()).toBe(0);
+            // disconnect was called during disconnect, it was not called again during the release.
+            expect(onSubscriptionDisconnect).toHaveBeenCalledTimes(1);
         });
 
         it('should reconnect to the same subscription instance when the network re-establishes quickly', () => {
+            expect(onSubscriptionConnect).toHaveBeenCalledTimes(1);
             const newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
             expect(newSubscription).toEqual(subscription);
+
+            expect(onSubscriptionConnect).toHaveBeenCalledTimes(2);
+            expect(onSubscriptionConnect.calls.argsFor(0)).toEqual([subscription]);
+            expect(onSubscriptionConnect.calls.argsFor(1)).toEqual([subscription]);
         });
 
         it('should reconnect to a new subscription instance when the network does NOT re-establish quickly', () => {
             jasmine.clock().tick(sync.getMaxDisconnectionTimeBeforeDroppingSubscription() * 1000 + 10);
             const newSubscription = sync.subscribe(handler.user, handler.socket, subscription.id, 'magazines', null);
             expect(newSubscription).not.toBe(subscription);
+
+            expect(onSubscriptionConnect).toHaveBeenCalledTimes(2);
+            expect(onSubscriptionConnect.calls.argsFor(0)).toEqual([subscription]);
+            expect(onSubscriptionConnect.calls.argsFor(1)).toEqual([newSubscription]);
         });
 
     });
