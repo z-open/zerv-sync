@@ -647,6 +647,80 @@ describe('Sync', () => {
     });
 
 
+    describe('onChanges', () => {
+
+        let listenerOff;
+        let onChangeCallback;
+
+        beforeEach(async () => {
+            subscription = sync.subscribe(handler.user, handler.socket, nullValue, 'magazines', null);
+            await waitForReceivingSubscribedData();
+            onChangeCallback = jasmine.createSpy('onChange');
+        });
+
+        afterEach(() => {
+            listenerOff();
+        });
+
+        it('should deregister the listener', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            listenerOff();
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            expect(onChangeCallback).not.toHaveBeenCalled();
+        });
+        
+        it('should receive the object creation from local notification', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'ADD', {});
+        });
+
+        it('should receive an object update from local notification', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'UPDATE', {});
+        });
+
+        it('should receive an object removal from local notification', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine1V3);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'REMOVAL', {});
+        });
+
+        it('should NOT receive any object notifications from other servers when using localOnly', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback, {localOnly:true});
+            // notification comes from the cluster, not the local server
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
+            expect(onChangeCallback).not.toHaveBeenCalled();
+        });
+
+        it('should receive the object creation from cluster notification when NOT using localOnly', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'ADD', {clusterSrc: true});
+        });
+
+        it('should receive an object update from cluster notification when NOT using localOnly', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'UPDATE', {clusterSrc: true});
+        });
+
+        it('should receive an object removal from cluster notification when NOT using localOnly', async () => {
+            listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
+            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
+            expect(onChangeCallback).toHaveBeenCalledTimes(1);
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'REMOVAL', {clusterSrc: true});
+        });
+    });
+
     function waitForReceivingSubscribedData() {
         return socket.deferredEmit.promise.then((data) => {
             socket.deferredEmit = defer();
