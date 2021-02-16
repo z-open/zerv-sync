@@ -673,49 +673,49 @@ describe('Sync', () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
             sync.notifyCreation(tenantId, 'MAGAZINE_DATA', magazine1V3);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
-            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'ADD', {});
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'ADD', {clusterSrc: false});
         });
 
         it('should receive an object update from local notification', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
             sync.notifyUpdate(tenantId, 'MAGAZINE_DATA', magazine1V3);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
-            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'UPDATE', {});
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'UPDATE', {clusterSrc: false});
         });
 
         it('should receive an object removal from local notification', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
             sync.notifyDelete(tenantId, 'MAGAZINE_DATA', magazine1V3);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
-            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'REMOVAL', {});
+            expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'REMOVAL', {clusterSrc: false});
         });
 
         it('should NOT receive any object notifications from other servers when using localOnly', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback, {localOnly:true});
             // notification comes from the cluster, not the local server
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
             expect(onChangeCallback).not.toHaveBeenCalled();
         });
 
         it('should receive the object creation from cluster notification when NOT using localOnly', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'ADD', [magazine1V3]);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
             expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'ADD', {clusterSrc: true});
         });
 
         it('should receive an object update from cluster notification when NOT using localOnly', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'UPDATE', [magazine1V3]);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
             expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'UPDATE', {clusterSrc: true});
         });
 
         it('should receive an object removal from cluster notification when NOT using localOnly', async () => {
             listenerOff = sync.onChanges('MAGAZINE_DATA', onChangeCallback);
-            sync._processExternalRecordNotications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
+            sync._processExternalRecordNotifications(tenantId, 'MAGAZINE_DATA', 'REMOVAL', [magazine1V3]);
             expect(onChangeCallback).toHaveBeenCalledTimes(1);
             expect(onChangeCallback).toHaveBeenCalledWith(tenantId, magazine1V3, 'REMOVAL', {clusterSrc: true});
         });
